@@ -1,0 +1,22 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Scan Sniper</title><link rel="stylesheet" href="style.css"></head>
+<body><a class="back" href="index.html">← games</a><canvas id="c"></canvas>
+<script src="common.js"></script>
+<script>
+const ID = 'scan-sniper', W = 360, H = 640, N = 8, RH = 62, TOP = 120, c = document.getElementById('c'), ctx = G.setup(c, W, H), bgi = G.img('assets/bg/scan-sniper.png');
+const COLORS = ['#ff2bd6', '#ffe600', '#00e5ff', '#ff8a00', '#b388ff', '#7CFF6B', '#ff4d6d', '#39ff14'];
+let pool = ['RAX', 'DOSE', 'PILL', 'CAPS', 'MOON', 'GLOW', 'ZAP', 'FROG', 'BONK', 'WAGMI', 'KIRA', 'NOVA'], s = 'ready', rows = [], score = 0, lives = 3, timeLeft = 60, streak = 0, best = G.best(ID), last = performance.now(), mood = 0, moodT = 0, shake = 0, dead = 0;
+(async () => { try { const b = await (await fetch('https://api.dexscreener.com/token-boosts/latest/v1')).json(); const a = [...new Set(b.filter((t) => t.chainId === 'solana').map((t) => t.tokenAddress))].slice(0, 30); const p = await (await fetch('https://api.dexscreener.com/tokens/v1/solana/' + a.join(','))).json(); const sy = [...new Set(p.map((x) => String(x.baseToken.symbol).slice(0, 8).toUpperCase()))]; if (sy.length > 6) pool = sy; } catch (e) {} })();
+const roll = (r) => { const pump = Math.random() < .33; r.sym = pool[(Math.random() * pool.length) | 0]; r.ch = pump ? G.rnd(20, 300) : G.rnd(-70, 12); r.pump = pump; r.t = G.rnd(.55, 1.3) / (1 + Math.min(score * .03, 1.2)); r.hit = 0; };
+function reset() { rows = Array.from({ length: N }, () => { const r = {}; roll(r); return r; }); score = 0; lives = 3; timeLeft = 60; streak = 0; s = 'play'; }
+function end() { s = 'dead'; dead = performance.now(); G.save(ID, score); best = G.best(ID); }
+addEventListener('pointerdown', (e) => { if (e.target.closest('a')) return; e.preventDefault(); if (s === 'ready' || (s === 'dead' && performance.now() - dead > 500)) { reset(); return; } const p = G.pos(c, e, W, H), i = Math.floor((p.y - TOP) / RH); if (i < 0 || i >= N || s !== 'play') return; const r = rows[i]; if (r.hit) return; if (r.pump) { streak++; score += 1 + Math.floor(streak / 5); r.hit = .25; mood = 1; } else { streak = 0; lives--; shake = .25; mood = -1; if (lives <= 0) end(); } moodT = .6; });
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now; requestAnimationFrame(frame); moodT -= dt; shake -= dt; if (moodT < 0) mood = 0;
+  if (s === 'play') { timeLeft -= dt; if (timeLeft <= 0) end(); rows.forEach((r) => { r.t -= dt; if (r.hit > 0) { r.hit -= dt; if (r.hit <= 0) roll(r); } else if (r.t <= 0) roll(r); }); }
+  ctx.save(); if (shake > 0) ctx.translate(G.rnd(-4, 4), G.rnd(-4, 4)); G.bg(ctx, bgi, W, H, '#0a1633', '#050810'); rows.forEach((r, i) => { const y = TOP + i * RH, col = COLORS[i % 8], hot = r.pump || r.hit > 0; ctx.fillStyle = hot ? col : '#000'; ctx.fillRect(10, y, W - 20, RH - 6); ctx.fillStyle = col; ctx.fillRect(10, y, 12, RH - 6); ctx.strokeStyle = '#f3f6ff'; ctx.lineWidth = 2; ctx.strokeRect(10, y, W - 20, RH - 6); G.text(ctx, '$' + r.sym, 34, y + 38, 24, hot ? '#000' : col, 'left'); G.text(ctx, (r.ch >= 0 ? '+' : '') + r.ch.toFixed(0) + '%', W - 24, y + 38, 24, hot ? '#000' : (r.ch >= 0 ? '#39ff14' : '#ff4d6d'), 'right'); }); ctx.restore();
+  G.rax(ctx, 44, 62, 16, { eye: mood ? 1.2 : 1, smile: mood > 0 ? 1 : mood < 0 ? -.8 : .4, open: mood > 0 ? .5 : 0, dizzy: s === 'dead' }); G.text(ctx, score, W / 2, 62, 44, '#fff'); G.text(ctx, 'streak ' + streak + ' · best ' + best, W / 2, 88, 13, '#8fa3c7'); G.text(ctx, '♥'.repeat(Math.max(0, lives)), W - 20, 46, 22, '#ff2b4d', 'right'); G.text(ctx, Math.ceil(Math.max(0, timeLeft)) + 's', W - 20, 78, 20, '#ffe600', 'right');
+  if (s === 'ready') { ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillRect(0, 0, W, H); G.text(ctx, 'SCAN SNIPER', W / 2, 250, 32, '#ffe600'); G.text(ctx, 'tap the GREEN pumps', W / 2, 292, 17, '#39ff14'); G.text(ctx, 'tap a dump and you lose a life', W / 2, 318, 13, '#ff4d6d'); G.text(ctx, 'tap to start · 60 seconds', W / 2, 360, 14, '#fff'); }
+  if (s === 'dead') { ctx.fillStyle = 'rgba(0,0,0,.8)'; ctx.fillRect(0, 0, W, H); G.text(ctx, lives <= 0 ? 'SNIPED OUT' : 'TIME', W / 2, 250, 32, '#ff2bd6'); G.text(ctx, 'score ' + score + ' · best ' + best, W / 2, 292, 16, '#fff'); G.text(ctx, 'tap to retry', W / 2, 326, 15, '#ffe600'); }
+}
+requestAnimationFrame(frame);
+</script></body></html>

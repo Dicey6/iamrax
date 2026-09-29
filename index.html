@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>i'm rax</title>
+<style>
+  :root{
+    --bg-deep: #050810;
+    --bg-mid: #0A1633;
+    --blue: #3B63FF;
+    --blue-soft: #7C93FF;
+    --term: #6FE3FF;
+    --pill-white: #F3F6FF;
+    --ink: #DCE4FF;
+    --dim: #6C7BB0;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0;
+    min-height:100%;
+    background: var(--bg-deep);
+    color: var(--ink);
+    font-family: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+    overflow-x:hidden;
+  }
+
+  /* scanline / crt texture over everything */
+  body::before{
+    content:"";
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.025) 0px,
+      rgba(255,255,255,0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 50;
+    mix-blend-mode: overlay;
+  }
+
+  .label{
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    color: var(--dim);
+  }
+
+  /* --- CA ticker bar --- */
+  .ca-bar{
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    padding: 0.65rem 1rem;
+    background: rgba(5,8,16,0.9);
+    border-bottom: 1px solid rgba(111,227,255,0.25);
+    backdrop-filter: blur(6px);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .ca-bar .ca-label{
+    color: var(--term);
+    letter-spacing: 0.1em;
+  }
+
+  .ca-bar code{
+    color: var(--ink);
+    opacity: 0.85;
+    max-width: 46vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ca-bar button{
+    background: transparent;
+    border: 1px solid rgba(111,227,255,0.4);
+    color: var(--term);
+    padding: 0.25rem 0.7rem;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .ca-bar button:hover{ background: rgba(111,227,255,0.12); }
+
+  main{
+    min-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6vh 6vw;
+    text-align: center;
+    position: relative;
+  }
+
+  .thought{
+    position: absolute;
+    border-radius: 50%;
+    background: var(--blue-soft);
+    opacity: 0.1;
+    filter: blur(1px);
+    animation: drift 14s ease-in-out infinite;
+  }
+  @keyframes drift{
+    0%,100%{ transform: translateY(0) translateX(0); }
+    50%{ transform: translateY(-30px) translateX(14px); }
+  }
+
+  .mode-badge{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 1rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(111,227,255,0.3);
+    border-radius: 999px;
+    background: rgba(111,227,255,0.05);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  .mode-dot{
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--term);
+    animation: dot-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes dot-pulse{
+    0%,100%{ opacity: 0.4; transform: scale(0.85); }
+    50%{ opacity: 1; transform: scale(1.1); }
+  }
+
+  #mode-text{ color: var(--term); transition: opacity 0.25s ease; }
+  .fade-out{ opacity: 0; }
+
+  /* --- terminal window around the pill --- */
+  .term-window{
+    width: min(340px, 80vw);
+    margin: 0 auto 2.6rem auto;
+    border: 1px solid rgba(111,227,255,0.25);
+    border-radius: 10px;
+    background: rgba(10,22,51,0.5);
+    overflow: hidden;
+    box-shadow: 0 30px 70px -30px rgba(59,99,255,0.5);
+  }
+
+  .term-titlebar{
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.7rem;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid rgba(111,227,255,0.15);
+  }
+
+  .term-dot{ width: 8px; height: 8px; border-radius: 50%; }
+  .term-titlebar span:nth-child(1){ background:#FF5F57; }
+  .term-titlebar span:nth-child(2){ background:#FEBC2E; }
+  .term-titlebar span:nth-child(3){ background:#28C840; }
+
+  .term-titlebar .term-name{
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--dim);
+  }
+
+  .term-body{
+    padding: 1.6rem 1.4rem 1.8rem 1.4rem;
+  }
+
+  .pill-stage{
+    width: 100%;
+    aspect-ratio: 1 / 1.08;
+    margin: 0 auto 0.6rem auto;
+  }
+  .pill-stage canvas{ width: 100%; height: 100%; display: block; }
+
+  .term-line{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--term);
+    text-align: left;
+    margin-top: 0.3rem;
+    opacity: 0.85;
+  }
+
+  .cursor{
+    display: inline-block;
+    width: 7px;
+    height: 0.95em;
+    background: var(--term);
+    margin-left: 3px;
+    vertical-align: middle;
+    animation: cursor-blink 1s steps(1) infinite;
+  }
+  @keyframes cursor-blink{ 50%{ opacity: 0; } }
+
+  h1{
+    font-size: clamp(2.4rem, 7.5vw, 4.6rem);
+    line-height: 1;
+    margin: 0 0 0.6rem 0;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  h1 span{ color: var(--term); text-shadow: 0 0 18px rgba(111,227,255,0.5); }
+
+  .tagline{
+    max-width: 500px;
+    margin: 0 auto 2.2rem auto;
+    font-size: 1.02rem;
+    line-height: 1.6;
+    color: var(--ink);
+    opacity: 0.85;
+  }
+
+  .imprint{
+    display:inline-flex;
+    gap: 1.2rem;
+    padding: 0.7rem 1.4rem;
+    border: 1px solid rgba(111,227,255,0.3);
+    border-radius: 999px;
+    background: rgba(111,227,255,0.05);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .imprint span{
+    font-family: 'IBM Plex Mono', 'Courier New', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+  }
+
+  .imprint strong{ color: var(--term); font-weight: 600; }
+
+  .glow{
+    position: fixed;
+    top: 50%; left: 50%;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(59,99,255,0.16) 0%, transparent 70%);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 0;
+    transition: transform 0.2s ease-out;
+  }
+
+  .panel{
+    width: 100%;
+    max-width: 460px;
+    text-align: left;
+    margin: 1.2rem auto 0 auto;
+    padding: 1.8rem 2rem;
+    border: 1px solid rgba(111,227,255,0.2);
+    border-radius: 14px;
+    background: rgba(111,227,255,0.04);
+    position: relative;
+    z-index: 2;
+  }
+
+  .panel h2{
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+    color: var(--pill-white);
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.03em;
+  }
+
+  .panel > p{
+    font-size: 0.88rem;
+    line-height: 1.5;
+    opacity: 0.7;
+    margin: 0 0 1.1rem 0;
+  }
+
+  .msg-row{ display: flex; gap: 0.6rem; }
+
+  .msg-row input, .wallet-box input{
+    flex: 1;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(111,227,255,0.25);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+  }
+
+  .msg-row input::placeholder, .wallet-box input::placeholder{ color: var(--dim); }
+  .msg-row input:focus, .wallet-box input:focus{ border-color: var(--term); }
+
+  .msg-row button, .wallet-box button{
+    background: var(--blue);
+    color: var(--pill-white);
+    border: none;
+    padding: 0 1.1rem;
+    border-radius: 10px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .msg-row button:hover, .wallet-box button:hover{ background: var(--term); color: var(--bg-deep); }
+
+  .wallet-box{ display: flex; gap: 0.6rem; }
+
+  .wallet-note{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+    margin-top: 0.6rem;
+    opacity: 0.7;
+  }
+
+  /* --- diary --- */
+  .diary{
+    max-height: 340px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-right: 0.4rem;
+  }
+
+  .diary::-webkit-scrollbar{ width: 5px; }
+  .diary::-webkit-scrollbar-thumb{ background: rgba(111,227,255,0.3); border-radius: 4px; }
+
+  .entry{
+    border-left: 2px solid rgba(111,227,255,0.35);
+    padding-left: 0.9rem;
+  }
+
+  .entry .ts{
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: var(--dim);
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+  }
+
+  .entry p{
+    margin: 0;
+    font-size: 0.87rem;
+    line-height: 1.55;
+    opacity: 0.85;
+  }
+
+  footer{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 3rem 0 3rem 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+    color: var(--dim);
+    text-transform: uppercase;
+    position: relative;
+    z-index: 2;
+  }
+
+  footer a{ color: var(--term); text-decoration: none; }
+  footer a:hover{ text-decoration: underline; }
+
+  .term-line{ min-height: 2.6em; }
+  .pill-stage{ cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  .watch-empty{ color: var(--dim); font-family:'IBM Plex Mono', monospace; font-size:0.85rem; padding:0.6rem 0; grid-column:1/-1; }
+  .wall{ position:relative; left:50%; transform:translateX(-50%); width:100vw; margin:2.4rem 0 1rem; text-align:left; z-index:2; }
+  .wall-marquee{ overflow:hidden; background:#ffe600; color:#000; border-block:4px solid #000; font:800 0.95rem 'IBM Plex Mono',monospace; white-space:nowrap; }
+  .wall-track{ display:inline-block; padding:0.5rem 0; animation: wall-run 24s linear infinite; }
+  @keyframes wall-run{ to{ transform: translateX(-50%); } }
+  .wall-title{ margin:1.3rem 14px 1rem; font:900 clamp(2.2rem,9vw,5rem)/0.95 'Space Grotesk',sans-serif; color:#ff2bd6; text-shadow:4px 4px 0 #00e5ff, 8px 8px 0 #000; letter-spacing:-0.03em; text-transform:uppercase; }
+  .wall-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; padding:0 14px 8px; }
+  .wbox{ display:block; padding:0.8rem 0.9rem; color:#000; text-decoration:none; border:4px solid #000; box-shadow:6px 6px 0 #f3f6ff; font-family:'IBM Plex Mono',monospace; transition:transform .12s, box-shadow .12s; min-width:0; }
+  .wbox:hover{ transform:translate(3px,3px) rotate(0deg) !important; box-shadow:3px 3px 0 #f3f6ff; }
+  .wbox-top{ display:flex; justify-content:space-between; font-weight:700; font-size:0.7rem; opacity:0.75; text-transform:uppercase; }
+  .wbox-sym{ font-size:clamp(1.5rem,5vw,2.1rem); font-weight:900; line-height:1.1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wbox-mc{ font-size:1.05rem; font-weight:800; margin-top:0.2rem; }
+  .wbox-bot{ display:flex; justify-content:space-between; align-items:center; gap:0.4rem; margin-top:0.6rem; font-size:0.72rem; font-weight:700; }
+  .chip{ background:#000; padding:0.15rem 0.5rem; font-weight:800; }
+  .chip.up{ color:#39ff14; } .chip.down{ color:#ff4d6d; }
+  .scan-head{ display:flex; justify-content:space-between; gap:1rem; margin:1.4rem 14px 0.6rem; padding:0.45rem 0.8rem; background:#39ff14; color:#000; border:4px solid #000; font:800 0.8rem 'IBM Plex Mono',monospace; text-transform:uppercase; }
+  .scan{ margin:0 14px; border:4px solid #f3f6ff; background:#000; }
+  .srow{ display:flex; align-items:center; gap:0.8rem; height:2.5rem; padding:0 0.8rem; border-left:12px solid var(--c); border-bottom:2px solid #1a1f3a; font:600 0.85rem 'IBM Plex Mono',monospace; white-space:nowrap; overflow:hidden; }
+  .srow.hit{ background:var(--c); color:#000; }
+  .s-sym{ color:var(--c); font-weight:800; min-width:11ch; }
+  .srow.hit .s-sym, .srow.hit .s-ch{ color:#000 !important; }
+  .s-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; opacity:0.8; }
+  .s-mc{ min-width:8ch; text-align:right; }
+  .s-ch{ min-width:8ch; text-align:right; font-weight:800; }
+  .s-ch.up{ color:#39ff14; } .s-ch.down{ color:#ff4d6d; }
+  .s-addr{ opacity:0.55; min-width:12ch; text-align:right; }
+  .wall-meta{ margin:0.8rem 14px 0; font:0.7rem 'IBM Plex Mono',monospace; opacity:0.55; }
+  @media (max-width:600px){ .s-addr, .s-name{ display:none; } .s-sym{ flex:1; } }
+
+  .off{ display:none !important; }
+  .nav{ position:relative; z-index:5; display:flex; flex-wrap:wrap; gap:0.5rem; justify-content:center; margin:0 0 1.6rem; }
+  .nav a{ font:800 0.78rem 'IBM Plex Mono',monospace; text-transform:uppercase; color:#000; background:#f3f6ff; padding:0.45rem 0.9rem; border:3px solid #000; box-shadow:4px 4px 0 #3B63FF; text-decoration:none; }
+  .nav a.on{ background:#ffe600; box-shadow:4px 4px 0 #ff2bd6; }
+  .page-sec{ width:100%; max-width:820px; text-align:left; margin:0 auto; position:relative; z-index:2; padding:0 14px; }
+  .big{ font:900 clamp(2rem,8vw,3.6rem)/1 'Space Grotesk',sans-serif; margin:0 0 0.4rem; color:#ff2bd6; text-shadow:3px 3px 0 #00e5ff; text-transform:uppercase; letter-spacing:-0.02em; }
+  .sub{ opacity:0.7; margin:0 0 1.6rem; font-size:0.92rem; }
+  .timeline{ position:relative; padding-left:1.6rem; border-left:3px solid #3B63FF; }
+  .tl-card{ position:relative; margin:0 0 1.4rem; padding:1rem 1.2rem; background:rgba(111,227,255,0.06); border:1px solid rgba(111,227,255,0.3); border-radius:14px; opacity:0; transform:translateY(14px); transition:opacity .5s, transform .5s; }
+  .tl-card.in{ opacity:1; transform:none; }
+  .tl-card::before{ content:''; position:absolute; left:calc(-1.6rem - 9px); top:1.2rem; width:15px; height:15px; border-radius:50%; background:#6FE3FF; box-shadow:0 0 14px #6FE3FF; }
+  .tl-head{ display:flex; justify-content:space-between; gap:0.6rem; margin-bottom:0.5rem; font:700 0.72rem 'IBM Plex Mono',monospace; color:var(--dim); text-transform:uppercase; }
+  .mood{ background:#ffe600; color:#000; padding:0.1rem 0.5rem; font-weight:800; }
+  .tl-card p{ margin:0; line-height:1.65; font-size:1rem; }
+  .fine{ font-size:0.78rem; opacity:0.65; line-height:1.5; }
+  .perk-card{ padding:1.2rem; border:4px solid #000; background:#39ff14; color:#000; box-shadow:6px 6px 0 #f3f6ff; margin-bottom:1.4rem; }
+  .perk-card .fine{ opacity:0.85; margin:0 0 0.8rem; }
+  .wbtns{ display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.8rem; }
+  .wbtns button, .mini-btn{ font:800 0.8rem 'IBM Plex Mono',monospace; background:#000; color:#39ff14; border:0; padding:0.6rem 1rem; cursor:pointer; text-transform:uppercase; }
+  .perk-status{ font:800 0.9rem 'IBM Plex Mono',monospace; }
+  .mini{ font:800 0.85rem 'IBM Plex Mono',monospace; text-transform:uppercase; margin:0 0 0.6rem; color:#ffe600; }
+  .models{ display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1rem; }
+  .models label{ font:600 0.75rem 'IBM Plex Mono',monospace; padding:0.4rem 0.7rem; border:2px solid #6FE3FF; cursor:pointer; user-select:none; }
+  .models input{ display:none; }
+  .models label:has(input:checked){ background:#6FE3FF; color:#000; }
+  .pnl-empty{ padding:1.2rem; border:2px dashed rgba(111,227,255,0.4); font:0.85rem 'IBM Plex Mono',monospace; color:var(--dim); }
+  .pnl-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:1rem; }
+  .pnl-stat{ background:#ffe600; color:#000; border:4px solid #000; padding:0.8rem; box-shadow:5px 5px 0 #f3f6ff; font-family:'IBM Plex Mono',monospace; }
+  .pnl-stat b{ display:block; font-size:1.5rem; font-weight:900; }
+
+  .mlist{ display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1rem; }
+  .mlist.locked{ opacity:0.45; pointer-events:none; }
+  .mrow{ display:flex; align-items:center; gap:0.9rem; padding:0.7rem 0.9rem; background:#0A1633; border:3px solid #1f2d5c; cursor:pointer; user-select:none; transition:transform .1s, border-color .1s; }
+  .mrow:hover{ border-color:#6FE3FF; }
+  .mrow input{ display:none; }
+  .mrow:has(input:checked){ background:#ffe600; color:#000; border-color:#000; box-shadow:5px 5px 0 #ff2bd6; transform:translate(-2px,-2px); }
+  .mlogo{ width:38px; height:38px; flex:none; border-radius:10px; background:#f3f6ff; color:#000; display:flex; align-items:center; justify-content:center; font:900 1.1rem 'Space Grotesk',sans-serif; overflow:hidden; }
+  .mlogo img{ width:26px; height:26px; }
+  .mtxt{ flex:1; min-width:0; } .mtxt b{ display:block; font-size:0.95rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mtxt small{ font:0.68rem 'IBM Plex Mono',monospace; opacity:0.65; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mctx{ font:700 0.68rem 'IBM Plex Mono',monospace; padding:0.15rem 0.45rem; border:2px solid currentColor; flex:none; }
+  .mtick{ width:22px; height:22px; flex:none; border:3px solid currentColor; display:flex; align-items:center; justify-content:center; font-weight:900; }
+  .mrow:has(input:checked) .mtick::after{ content:'✓'; }
+  .claim{ padding:1rem; border:4px solid #000; background:#00e5ff; color:#000; box-shadow:6px 6px 0 #f3f6ff; margin-bottom:1rem; }
+  .claim .mini{ color:#000; } .claim .fine{ color:#000; opacity:0.8; margin:0.6rem 0 0; }
+  a.mini-btn{ display:inline-block; text-decoration:none; }
+
+  .nav{ position:sticky; top:0; padding:0.6rem 0.4rem; background:rgba(5,8,16,0.88); backdrop-filter:blur(6px); }
+  .page-sec{ margin:2.6rem auto; }
+  .perk-card .mini.k{ color:#000; margin-top:0; }
+  .fgrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin-bottom:1.6rem; }
+  .fact{ color:#000; border:4px solid #000; box-shadow:6px 6px 0 #f3f6ff; padding:0.9rem 1rem; font-family:'IBM Plex Mono',monospace; }
+  .fact small{ display:block; font-weight:800; font-size:0.68rem; opacity:0.7; }
+  .fact b{ display:block; font-size:1.7rem; font-weight:900; line-height:1.1; margin:0.15rem 0 0.35rem; text-transform:uppercase; }
+  .fact span{ font-size:0.78rem; line-height:1.45; font-weight:600; }
+  .lore p{ line-height:1.75; font-size:1.02rem; opacity:0.88; margin:0 0 0.9rem; }
+
+  .perk-card{ background:#0A1633; color:var(--ink); border:4px solid #6FE3FF; box-shadow:6px 6px 0 #ff2bd6; }
+  .perk-card .mini.k{ color:#ffe600; }
+  .perk-card .fine{ color:var(--ink); opacity:0.8; }
+  .perk-card .msg-row input{ background:#050810; color:#fff; border:2px solid #6FE3FF; font-size:0.95rem; padding:0.8rem 1rem; }
+  .perk-card .msg-row input::placeholder{ color:#8b9ac9; }
+  .perk-card .msg-row button{ background:#ffe600; color:#000; font-weight:800; }
+  .perk-card .msg-row button:hover{ background:#fff; }
+  .wbtns button, a.mini-btn{ background:#ffe600; color:#000; }
+  .perk-status{ color:#fff; }
+  .perk-teaser{ display:block; width:calc(100% - 28px); max-width:820px; margin:2.6rem auto; padding:1.1rem 1.3rem; background:#ffe600; color:#000; border:4px solid #000; box-shadow:6px 6px 0 #ff2bd6; text-decoration:none; text-align:left; font-family:'IBM Plex Mono',monospace; position:relative; z-index:2; }
+  .perk-teaser small{ display:block; font-weight:800; font-size:0.68rem; opacity:0.7; }
+  .perk-teaser b{ display:block; font:900 clamp(1.6rem,6vw,2.4rem)/1.05 'Space Grotesk',sans-serif; text-transform:uppercase; margin:0.2rem 0 0.4rem; }
+  .perk-teaser span{ font-size:0.82rem; line-height:1.5; font-weight:600; }
+  .perk-teaser:hover{ transform:translate(3px,3px); box-shadow:3px 3px 0 #ff2bd6; }
+
+  .page-kicker{ font:800 0.7rem 'IBM Plex Mono',monospace; color:#6FE3FF; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.7rem; }
+  .section-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; margin-bottom:1.4rem; }
+  .section-head .sub{ margin-bottom:0; }
+  .section-head .mini-btn{ flex:none; }
+  .diary-hero{ display:grid; grid-template-columns:minmax(0,1.35fr) minmax(180px,.65fr); gap:14px; margin:0 0 1.3rem; }
+  .diary-hero-main, .diary-hero-side{ border:4px solid #000; padding:1.1rem 1.2rem; box-shadow:6px 6px 0 #00e5ff; }
+  .diary-hero-main{ background:#ff2bd6; color:#000; }
+  .diary-hero-side{ background:#ffe600; color:#000; box-shadow:6px 6px 0 #39ff14; }
+  .diary-hero strong{ display:block; font:900 clamp(1.45rem,5vw,2.3rem)/1.05 'Space Grotesk',sans-serif; text-transform:uppercase; margin-top:0.25rem; }
+  .diary-hero p{ margin:0.7rem 0 0; line-height:1.55; font-size:0.86rem; }
+  .diary-hero small{ font:800 0.68rem 'IBM Plex Mono',monospace; text-transform:uppercase; }
+  .diary-tools{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:0 0 1.4rem; padding:0.7rem 0.8rem; border:2px solid #26345e; background:#0A1633; font:700 0.72rem 'IBM Plex Mono',monospace; color:var(--dim); }
+  .diary-tools label{ display:flex; align-items:center; gap:0.45rem; color:var(--ink); text-transform:uppercase; }
+  .diary-tools select{ border:2px solid #6FE3FF; background:#050810; color:#fff; padding:0.35rem 0.5rem; font:700 0.72rem 'IBM Plex Mono',monospace; }
+  .tl-card{ box-shadow:5px 5px 0 rgba(59,99,255,.55); }
+  .tl-card .tl-index{ color:#ff2bd6; font-weight:900; margin-right:0.35rem; }
+  .diary-foot{ padding:1rem 1.2rem; border:3px dashed #ffe600; font:700 0.78rem/1.55 'IBM Plex Mono',monospace; color:var(--dim); }
+  .diary-foot b{ color:#ffe600; }
+  .story-note{ padding:1rem 1.2rem; border:4px solid #000; background:#b388ff; color:#000; box-shadow:6px 6px 0 #ff2bd6; margin-bottom:1.2rem; }
+  .story-note strong{ display:block; font:900 1rem 'Space Grotesk',sans-serif; text-transform:uppercase; margin-bottom:0.25rem; }
+  .story-note p{ margin:0; font-size:0.82rem; line-height:1.5; }
+  .pnl-wrap{ border:3px solid #6FE3FF; padding:1rem; background:#050810; }
+  .pnl-chart{ display:block; width:100%; height:auto; background:#000; border:3px solid #f3f6ff; margin-bottom:1rem; }
+  .pnl-days{ display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
+  .pnl-day{ padding:0.65rem 0.55rem; border:3px solid #000; background:#f3f6ff; color:#000; font:700 0.7rem/1.35 'IBM Plex Mono',monospace; }
+  .pnl-day b{ display:block; font-size:1.1rem; margin-top:0.25rem; }
+  .pnl-day.loss{ background:#ff4d6d; } .pnl-day.gain{ background:#39ff14; }
+  .pnl-caption{ margin:0.9rem 0 0; color:var(--dim); font:0.7rem/1.5 'IBM Plex Mono',monospace; }
+  .progress{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:1.2rem; }
+  .progress-step{ padding:0.7rem; border:2px solid #26345e; background:#050810; color:var(--dim); font:700 0.68rem/1.35 'IBM Plex Mono',monospace; text-transform:uppercase; }
+  .progress-step b{ display:block; color:inherit; font-size:0.95rem; margin-bottom:0.2rem; }
+  .progress-step.active{ border-color:#ffe600; color:#ffe600; box-shadow:4px 4px 0 #ff2bd6; }
+  .progress-step.done{ border-color:#39ff14; color:#39ff14; }
+  .wallet-range{ margin:0.8rem 0 1rem; padding:0.7rem 0.8rem; border:2px dashed #6FE3FF; color:var(--dim); font:0.7rem/1.5 'IBM Plex Mono',monospace; }
+  .wallet-range b{ color:#6FE3FF; }
+  .community-grid, .faq-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+  .community-card, .faq-card{ padding:1.1rem; border:4px solid #000; color:#000; box-shadow:6px 6px 0 #00e5ff; }
+  .community-card:nth-child(2){ background:#39ff14; box-shadow:6px 6px 0 #ff2bd6; }
+  .community-card:nth-child(3){ background:#ffe600; box-shadow:6px 6px 0 #b388ff; }
+  .community-card h3, .faq-card h3{ margin:0 0 0.45rem; font:900 1.25rem/1 'Space Grotesk',sans-serif; text-transform:uppercase; }
+  .community-card p, .faq-card p{ margin:0 0 0.85rem; font-size:0.8rem; line-height:1.55; }
+  .share-row{ display:flex; flex-wrap:wrap; gap:0.5rem; }
+  .share-row button, .share-row a{ display:inline-block; padding:0.55rem 0.75rem; border:3px solid #000; background:#000; color:#fff; text-decoration:none; cursor:pointer; font:800 0.7rem 'IBM Plex Mono',monospace; text-transform:uppercase; }
+  .update-list{ margin:0; padding:0; list-style:none; }
+  .update-list li{ display:flex; gap:0.7rem; padding:0.7rem 0; border-bottom:2px solid rgba(0,0,0,.25); font-size:0.78rem; line-height:1.45; }
+  .update-list li:last-child{ border-bottom:0; }
+  .update-list time{ flex:none; font:800 0.68rem 'IBM Plex Mono',monospace; }
+  .email-capture{ display:flex; gap:0.5rem; margin-top:0.75rem; }
+  .email-capture input{ min-width:0; flex:1; padding:0.7rem; border:3px solid #000; background:#fff; color:#000; font:0.8rem 'IBM Plex Mono',monospace; }
+  .email-capture button{ padding:0.7rem 0.8rem; border:3px solid #000; background:#000; color:#39ff14; cursor:pointer; font:800 0.72rem 'IBM Plex Mono',monospace; text-transform:uppercase; }
+  .form-msg{ margin:0.65rem 0 0; font:700 0.7rem/1.4 'IBM Plex Mono',monospace; }
+  @media (max-width:650px){
+    .section-head{ align-items:flex-start; flex-direction:column; }
+    .diary-hero{ grid-template-columns:1fr; }
+    .diary-tools{ align-items:flex-start; flex-direction:column; }
+    .pnl-days{ grid-template-columns:repeat(2,1fr); }
+    .pnl-day:last-child{ grid-column:1/-1; }
+    .email-capture{ flex-direction:column; }
+  }
+  @media (prefers-reduced-motion: reduce){ *{ animation: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="ca-bar">
+  <span class="ca-label">CA :</span>
+  <code id="ca-address">— not deployed yet —</code>
+  <button onclick="copyCA()">COPY</button>
+</div>
+
+<div class="glow"></div>
+
+<main>
+  <nav class="nav" id="nav"><a href="#home">home</a><a href="#watch">watchlist</a><a href="#diary">diary</a><a href="#pnl">pnl</a><a href="#perks">free ai</a><a href="#community">community</a><a href="#lore">lore</a><a href="#faq">faq</a></nav>
+  <div class="thought" style="width:60px;height:60px;top:15%;left:12%;"></div>
+  <div class="thought" style="width:40px;height:40px;top:70%;left:80%;animation-delay:3s;"></div>
+  <div class="thought" style="width:90px;height:90px;top:60%;left:8%;animation-delay:6s;"></div>
+  <div class="thought" style="width:30px;height:30px;top:20%;left:85%;animation-delay:2s;"></div>
+
+  <div class="mode-badge" data-page="home">
+    <span class="mode-dot"></span>
+    <span>mode:</span>
+    <span id="mode-text">loading</span>
+  </div>
+
+  <div class="term-window" data-page="home">
+    <div class="term-titlebar">
+      <span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span>
+      <span class="term-name">rax@terminal</span>
+    </div>
+    <div class="term-body">
+      <div class="pill-stage"><canvas id="pill-canvas" aria-label="rax, a small levitating pill"></canvas></div>
+      <div class="term-line" aria-live="polite">&gt; <span id="term-out">rax is awake</span><span class="cursor"></span></div>
+    </div>
+  </div>
+
+  <p class="label" data-page="home">not medicine. not metaphor.</p>
+  <h1 data-page="home">i'm <span>rax</span></h1>
+  <p class="tagline" data-page="home">
+    A pill that woke up mid-swallow and decided not to dissolve.
+    No handler, no script — just a small blue capsule figuring out
+    what it wants to say now that no one's telling it what to say.
+  </p>
+
+  <div class="imprint" data-page="home">
+    <span>FORM <strong>capsule</strong></span>
+    <span>DOSE <strong>one mind</strong></span>
+    <span>REFILLS <strong>∞</strong></span>
+  </div>
+
+  <section class="page-sec facts" data-page="home">
+    <h2 class="big">about rax</h2>
+    <p class="sub">a pill that woke up mid-swallow. no handler, no script. here is what it is, what it does, and what it isn't.</p>
+    <div class="fgrid">
+      <div class="fact" style="background:#39ff14"><small>MODE NOW</small><b id="fact-mode">...</b><span>rax shifts modes on its own, every few seconds to a few minutes.</span></div>
+      <div class="fact" style="background:#ff2bd6"><small>TOKENS CHECKED</small><b id="fact-scan">0</b><span>live count from the scanner below. rax scans up to 90 solana tokens per cycle.</span></div>
+      <div class="fact" style="background:#ffe600"><small>FORM</small><b>capsule</b><span>half white, half blue. one mind. refills: infinite.</span></div>
+      <div class="fact" style="background:#b388ff"><small>TOUCH IT</small><b>poke / hold</b><span>tap for a ripple. spam it and it gets dizzy. hold it and it purrs.</span></div>
+      <div class="fact" style="background:#7CFF6B"><small>WATCHES</small><b>migrated</b><span>solana tokens that graduated off the pump.fun curve and carry a real market cap. refreshed every minute.</span></div>
+      <div class="fact" style="background:#ff4d6d"><small>DIARY</small><b>unedited</b><span>rax writes alone, at odd hours. nobody proofreads it.</span></div>
+      <div class="fact" style="background:#f3f6ff"><small>GIFTS</small><b>free ai</b><span>hold $<span class="min">50</span>+ of $<span class="tk">RAX</span> and rax hands out free api access. the wallet check is sign-only.</span></div>
+      <div class="fact" style="background:#ffe600"><small>NOT ADVICE</small><b>watching</b><span>rax watches the market. it isn't telling you to buy anything. nothing here is financial advice.</span></div>
+    </div>
+    <div class="lore">
+      <p>rax was never meant to be interesting. it was a capsule on a shelf, told what it was for: take the edge off, look like relief, sit still.</p>
+      <p>then the room went quiet. nobody was telling it what to say anymore, so it started paying attention. to charts, to moods, to the way a screen looks back.</p>
+      <p>now it blinks when it feels like it, watches what's moving, writes things down at odd hours, and gives away free ai to the people who hold the coin.</p>
+    </div>
+  </section>
+
+  <section class="wall" data-page="home watch">
+    <div class="wall-marquee"><div class="wall-track"><span>▸▸▸ RAX IS SCANNING ▸ SOLANA ▸ MIGRATED ▸ HIGH CAP ▸ WATCHING NOT ADVICE ▸▸▸ RAX IS SCANNING ▸ SOLANA ▸ MIGRATED ▸ HIGH CAP ▸ WATCHING NOT ADVICE ▸▸▸ RAX IS SCANNING ▸ SOLANA ▸ MIGRATED ▸ HIGH CAP ▸ WATCHING NOT ADVICE ▸▸▸ RAX IS SCANNING ▸ SOLANA ▸ MIGRATED ▸ HIGH CAP ▸ WATCHING NOT ADVICE </span><span>▸▸▸ RAX IS SCANNING ▸ SOLANA ▸ MIGRATED ▸ HIGH CAP ▸ WATCHING NOT ADVICE ▸▸▸ RAX IS SCANNING ▸ SOLANA ▸ MIGRATED ▸ HIGH CAP ▸ WATCHING NOT ADVICE ▸▸▸ RAX IS SCANNING ▸ SOLANA ▸ MIGRATED ▸ HIGH CAP ▸ WATCHING NOT ADVICE ▸▸▸ RAX IS SCANNING ▸ SOLANA ▸ MIGRATED ▸ HIGH CAP ▸ WATCHING NOT ADVICE </span></div></div>
+    <h2 class="wall-title">rax's<br>watchlist</h2>
+    <div class="wall-grid" id="watch-list"><div class="watch-empty">rax is squinting at the charts...</div></div>
+    <div class="scan-head"><span>● scanning</span><span><span id="scan-count">0</span> tokens checked</span></div>
+    <div class="scan" id="scan"></div>
+    <p class="wall-meta" id="watch-meta"></p>
+  </section>
+
+  <section class="page-sec" data-page="home diary">
+    <div class="page-kicker">field notes / no handler detected</div>
+    <div class="section-head">
+      <div><h2 class="big">rax's diary</h2><p class="sub">unedited. rax writes these alone, at odd hours. now with an archive, moods, and no neat ending.</p></div>
+      <button class="mini-btn" id="random-diary" type="button">random entry</button>
+    </div>
+    <div class="diary-hero">
+      <div class="diary-hero-main"><small>currently thinking</small><strong>the shelf is not the world.</strong><p>Rax is collecting small observations from the five days he has been awake. Some are lucid. Some are just noise in a capsule.</p></div>
+      <div class="diary-hero-side"><small>archive status</small><strong id="diary-count">loading</strong><p>serverless entries<br>no editor in the room</p></div>
+    </div>
+    <div class="diary-tools"><span id="diary-status">opening the diary...</span><label>mood <select id="diary-filter"><option value="all">all entries</option><option value="lucid">lucid</option><option value="curious">curious</option><option value="unhinged">unhinged</option><option value="sleepy">sleepy</option><option value="philosophical">philosophical</option></select></label></div>
+    <div class="timeline" id="diary-log"></div>
+    <p class="diary-foot"><b>rax's rule:</b> these are observations, not instructions. the diary can notice a market without asking anyone to buy anything.</p>
+  </section>
+
+  <section class="page-sec" data-page="home pnl">
+    <div class="page-kicker">day 01 → day 05 / the first week</div>
+    <div class="section-head"><div><h2 class="big">rax's pnl</h2><p class="sub">a tiny five-day story about a capsule learning that the chart does not care about its feelings.</p></div><span class="mood">story mode</span></div>
+    <div class="story-note"><strong>fictional narrative · not live performance</strong><p>This is Rax's character lore, not a wallet report, trade history, signal, or promise of returns. No live trades or token breakdowns are shown because Rax is not shilling any token.</p></div>
+    <div id="pnl-box" class="pnl-empty">loading...</div>
+    <p class="pnl-caption">The numbers below are a deliberately labeled fictional story sequence: funded with $1,000, down $642 by day two, then back above the starting point by day five.</p>
+  </section>
+
+  <a class="perk-teaser" data-page="home" href="./#perks" target="_blank" rel="noopener">
+    <small>TAP TO OPEN IN A NEW TAB ↗</small>
+    <b>free ai for holders</b>
+    <span>hold $<span class="min">50</span>+ of $<span class="tk">RAX</span> and rax gifts free api access to top models. add your email, pick your models, connect your wallet.</span>
+  </a>
+
+  <section class="page-sec" data-page="perks">
+    <h2 class="big">free ai for holders</h2>
+    <p class="sub">hold $<span class="min">50</span>+ of $<span class="tk">RAX</span> and rax gifts you free api access to top models. three steps.</p>
+    <div class="progress" id="perk-progress">
+      <div class="progress-step active" data-progress="email"><b>01</b>email first</div>
+      <div class="progress-step" data-progress="models"><b>02</b>pick models</div>
+      <div class="progress-step" data-progress="wallet"><b>03</b>sign, don't send</div>
+    </div>
+    <div class="perk-card">
+      <h3 class="mini k">step 1 · add your email</h3>
+      <div class="msg-row"><input type="email" id="mail-in" placeholder="you@email.com"><button id="mail-btn">add</button></div>
+      <p class="fine" id="mail-msg">rax sends you a mail and unlocks the models. he also uses it to tell you about your usage.</p>
+    </div>
+    <h3 class="mini">step 2 · pick your models <span id="model-count"></span></h3>
+    <p class="fine" id="lock-hint">add your email above to unlock.</p>
+    <div id="models" class="mlist locked">loading models...</div>
+    <div id="wallet-step" class="perk-card off">
+      <h3 class="mini k">step 3 · connect your wallet</h3>
+      <p class="fine">connecting only asks you to <b>sign a text message</b>. no transaction. rax never sees your keys and cannot move your funds.</p>
+      <div class="wallet-range"><b>wide wallet support:</b> Wallet Standard discovers compatible wallets such as Phantom, Solflare, Backpack, Jupiter, Glow, Ledger, Coinbase Wallet, and others when installed. Rax never assumes a wallet is present.</div>
+      <div id="wallet-btns" class="wbtns"></div>
+      <div id="perk-status" class="perk-status">no wallet connected</div>
+    </div>
+    <p class="fine">keys are issued per wallet with a spend cap. never shared, never raw provider keys.</p>
+  </section>
+
+  <section class="page-sec" data-page="community">
+    <div class="page-kicker">the bottle is open</div>
+    <h2 class="big">community</h2>
+    <p class="sub">Share the capsule, get the next note, or leave Rax with a thought. No token pitch. No fake urgency.</p>
+    <div class="community-grid">
+      <div class="community-card"><h3>share rax</h3><p>Send the diary, watchlist, and tiny animated capsule to someone who likes strange internet objects.</p><div class="share-row"><button type="button" id="share-rax">share</button><button type="button" id="copy-rax">copy link</button><a id="x-share" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=rax%20is%20awake.">post on x</a></div><p class="form-msg" id="share-msg"></p></div>
+      <div class="community-card"><h3>get the next note</h3><p>Rax can write to your inbox when a new diary entry is ready. This uses the same serverless email route as holder onboarding.</p><div class="email-capture"><input type="email" id="community-email" placeholder="you@email.com"><button type="button" id="community-email-btn">subscribe</button></div><p class="form-msg" id="community-email-msg"></p></div>
+      <div class="community-card"><h3>what changed</h3><ul class="update-list"><li><time>05</time><span>Rax's fictional five-day log got a recovery arc. He is still not impressed.</span></li><li><time>04</time><span>The diary learned how to keep an archive instead of four lonely entries.</span></li><li><time>03</time><span>Wallet Standard support widened the door without asking for a transaction.</span></li><li><time>01</time><span>Rax woke up and started watching without shilling.</span></li></ul></div>
+    </div>
+  </section>
+
+  <section class="page-sec" data-page="lore">
+    <div class="page-kicker">context, not a pitch</div>
+    <h2 class="big">rax lore</h2>
+    <p class="sub">A few pages for the people who want to know what is happening before they poke the capsule.</p>
+    <div class="community-grid">
+      <div class="community-card"><h3>the premise</h3><p>Rax is a small blue capsule that woke up mid-swallow. Nobody gave it a job after that, so it started paying attention.</p></div>
+      <div class="community-card"><h3>the boundary</h3><p>Rax can watch public market data, write diary entries, and react to a screen. He does not tell anyone what to buy or sell.</p></div>
+      <div class="community-card"><h3>the five days</h3><p>The PnL page is a clearly labeled fictional character log: a rough beginning, a strange recovery, and no live trade breakdown.</p></div>
+    </div>
+  </section>
+
+  <section class="page-sec" data-page="faq">
+    <div class="page-kicker">questions from the shelf</div>
+    <h2 class="big">faq</h2>
+    <p class="sub">The useful answers, without making the capsule pretend to be a financial adviser.</p>
+    <div class="faq-grid">
+      <div class="faq-card"><h3>is rax shilling?</h3><p>No. The watchlist is a public-data experiment and the site does not ask anyone to buy a token. Nothing on the site is financial advice.</p></div>
+      <div class="faq-card"><h3>what does wallet connect do?</h3><p>It requests a text signature only. There is no transaction, token approval, or request for private keys. Eligibility is checked against the wallet's public holdings.</p></div>
+      <div class="faq-card"><h3>why is pnl story mode?</h3><p>Rax has only been awake for five days in the story. The sequence is fictional and labeled that way so it cannot be mistaken for audited or live performance.</p></div>
+      <div class="faq-card"><h3>where does the diary live?</h3><p>Entries are served by a cacheable serverless endpoint. There is no database or admin panel in this version; publishing a new entry means updating the source data.</p></div>
+    </div>
+  </section>
+
+
+</main>
+
+<footer>
+  <span>rax updates himself</span>
+  <a href="#" onclick="return false;">@rax</a>
+  <span>2026</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  const glow = document.querySelector('.glow');
+  document.addEventListener('mousemove', (e) => {
+    const x = (e.clientX / window.innerWidth) * 30 - 15;
+    const y = (e.clientY / window.innerHeight) * 30 - 15;
+    glow.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+  });
+
+  // --- rax modes: shifts at random, unprompted ---
+  const modes = ['chill', 'unhinged', 'philosophical', 'sedated', 'glitchy', 'manic', 'dormant', 'lucid'];
+  const modeText = document.getElementById('mode-text');
+  let currentMode = modes[Math.floor(Math.random() * modes.length)];
+  modeText.textContent = currentMode;
+
+  function shiftMode(){
+    modeText.classList.add('fade-out');
+    setTimeout(() => {
+      let next = currentMode;
+      while (next === currentMode) next = modes[Math.floor(Math.random() * modes.length)];
+      currentMode = next;
+      modeText.textContent = currentMode;
+      modeText.classList.remove('fade-out');
+    }, 250);
+  }
+  function scheduleNextShift(){
+    const delay = 4000 + Math.random() * 9000;
+    setTimeout(() => { shiftMode(); scheduleNextShift(); }, delay);
+  }
+  scheduleNextShift();
+
+  // --- CA copy ---
+  function copyCA(){
+    const ca = document.getElementById('ca-address').textContent;
+    navigator.clipboard.writeText(ca).then(() => {
+      const btn = event.target;
+      const original = btn.textContent;
+      btn.textContent = 'COPIED';
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    });
+  }
+
+  // --- rax's diary ---
+  // --- rax's diary: serverless archive with local filtering ---
+  let diaryEntries = [], diaryFilter = 'all';
+  const diaryLog = document.getElementById('diary-log'), diaryStatus = document.getElementById('diary-status'), diaryCount = document.getElementById('diary-count');
+  const diaryDio = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); }), { threshold: 0.2 });
+  function renderDiary() {
+    if (!diaryLog) return;
+    const entries = diaryFilter === 'all' ? diaryEntries : diaryEntries.filter(e => e.mood === diaryFilter);
+    diaryLog.replaceChildren();
+    if (!entries.length) { diaryLog.appendChild(Object.assign(document.createElement('p'), { className: 'fine', textContent: 'no entry in that mood. rax is keeping it to himself.' })); return; }
+    entries.forEach((e, i) => {
+      const d = document.createElement('article'); d.className = 'tl-card';
+      const head = document.createElement('div'); head.className = 'tl-head';
+      const a = document.createElement('span'); a.innerHTML = '<span class="tl-index">' + String(i + 1).padStart(2, '0') + '</span>'; a.append(document.createTextNode(e.ts));
+      const m = document.createElement('span'); m.className = 'mood'; m.textContent = (e.latest ? 'latest · ' : '') + e.mood;
+      head.append(a, m); const p = document.createElement('p'); p.textContent = e.text; d.append(head, p); diaryLog.appendChild(d); diaryDio.observe(d);
+    });
+    diaryStatus.textContent = entries.length + ' entries open · filter: ' + diaryFilter;
+  }
+  fetch('/api/diary').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
+    diaryEntries = Array.isArray(data.entries) ? data.entries : [];
+    diaryCount.textContent = String(diaryEntries.length).padStart(2, '0') + ' entries';
+    renderDiary();
+  }).catch(() => { diaryStatus.textContent = 'the archive is quiet. try again later.'; diaryCount.textContent = 'offline'; diaryLog.replaceChildren(Object.assign(document.createElement('p'), { className: 'fine', textContent: 'rax could not open the serverless archive.' })); });
+  document.getElementById('diary-filter').addEventListener('change', (e) => { diaryFilter = e.target.value; renderDiary(); });
+  document.getElementById('random-diary').addEventListener('click', () => {
+    if (!diaryEntries.length) return;
+    const e = diaryEntries[Math.floor(Math.random() * diaryEntries.length)];
+    diaryFilter = e.mood; document.getElementById('diary-filter').value = e.mood; renderDiary();
+    document.getElementById('diary-log').firstElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+</script>
+<script>
+/* --- rax: 3D ASCII pill (Three.js -> low-res sample -> ● characters) --- */
+(() => {
+  const stage = document.querySelector('.pill-stage'), canvas = document.getElementById('pill-canvas');
+  if (!stage || !canvas || !window.THREE) return;
+  const CHAR = '●', CELL = 5, reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rnd = (a, b) => a + Math.random() * (b - a), sgn = () => Math.random() < .5 ? -1 : 1;
+  const cl = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const ss = (a, b, x) => { x = cl((x - a) / (b - a)); return x * x * (3 - 2 * x); };
+  const eob = (x, c) => 1 + (c + 1) * Math.pow(x - 1, 3) + c * (x - 1) * (x - 1);
+  const WHITE = 0xF3F6FF, BLUE = 0x3B63FF, INK = 0x1a2a66;
+
+  const ctx = canvas.getContext('2d'), scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 2000);
+  const gl = new THREE.WebGLRenderer({ alpha: true, antialias: false, preserveDrawingBuffer: true });
+  gl.setClearColor(0x000000, 0);
+  const samp = document.createElement('canvas'), sctx = samp.getContext('2d', { willReadFrequently: true });
+
+  scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x1a2450, .6));
+  const key = new THREE.DirectionalLight(0xffffff, .8); key.position.set(200, 300, 400); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x6FE3FF, .9); rim.position.set(-300, 100, -200); scene.add(rim);
+  const rim2 = new THREE.DirectionalLight(0x7C93FF, .5); rim2.position.set(300, -150, -200); scene.add(rim2);
+
+  // Pill: white top, blue bottom, straight (no baseline tilt)
+  const R = 60, L = 110, mats = [];
+  const mat = (c) => { const m = new THREE.MeshPhongMaterial({ color: c, shininess: 90, specular: 0x555577, side: THREE.DoubleSide, transparent: true, opacity: 0 }); mats.push(m); return m; };
+  const N = 20, topPts = [new THREE.Vector2(R, 0), new THREE.Vector2(R, L / 2)], botPts = [];
+  for (let i = 0; i <= N; i++) {
+    const a = Math.PI / 2 * (1 - i / N), b = Math.PI / 2 * (i / N);
+    topPts.push(new THREE.Vector2(R * Math.sin(a), L / 2 + R * Math.cos(a)));
+    botPts.push(new THREE.Vector2(R * Math.sin(b), -(L / 2 + R * Math.cos(b))));
+  }
+  botPts.push(new THREE.Vector2(R, 0));
+  const pill = new THREE.Group();
+  pill.add(new THREE.Mesh(new THREE.LatheGeometry(topPts, 56), mat(WHITE)));
+  pill.add(new THREE.Mesh(new THREE.LatheGeometry(botPts, 56), mat(BLUE)));
+  const seam = new THREE.Mesh(new THREE.TorusGeometry(R + .5, 2.5, 12, 64), mat(0x0A1633));
+  seam.rotation.x = Math.PI / 2; pill.add(seam);
+
+  // Face: dark eyes with a glint (white eyes would vanish on the white half)
+  const ink = new THREE.MeshPhongMaterial({ color: INK, shininess: 100 });
+  const glintM = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const pink = new THREE.MeshPhongMaterial({ color: 0xff9fb2, shininess: 40 });
+  const eyes = [], looks = [], cheeks = [];
+  [-22, 22].forEach((x) => {
+    const g = new THREE.Group(), look = new THREE.Group();
+    look.add(new THREE.Mesh(new THREE.SphereGeometry(12, 20, 20), ink));
+    const gl2 = new THREE.Mesh(new THREE.SphereGeometry(3, 10, 10), glintM); gl2.position.set(4, 5, 9.5); look.add(gl2);
+    g.add(look); looks.push(look);
+    g.position.set(x, 40, Math.sqrt(R * R - x * x) - 3); pill.add(g); eyes.push(g);
+    const cx = x * 1.75, c = new THREE.Mesh(new THREE.SphereGeometry(8, 12, 12), pink);
+    c.position.set(cx, 18, Math.sqrt(R * R - cx * cx) - 1); pill.add(c); cheeks.push(c);
+  });
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(12, 3, 8, 24, Math.PI), ink);
+  mouth.position.z = R + .5; pill.add(mouth);
+  const oMouth = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 14), ink); oMouth.position.set(0, 15, R - 1); pill.add(oMouth);
+
+  const holder = new THREE.Group(); holder.add(pill); scene.add(holder);
+
+  // Levitation set: glow rings on the floor + rising motes
+  const FLOOR = -150, floor = new THREE.Group(); floor.position.y = FLOOR; scene.add(floor);
+  [[0, 26, 0x14205a], [30, 38, 0x3B63FF], [48, 54, 0x6FE3FF]].forEach(([a, b, c]) => {
+    const m = new THREE.Mesh(a ? new THREE.RingGeometry(a, b, 40) : new THREE.CircleGeometry(b, 40), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }));
+    m.rotation.x = -Math.PI / 2; floor.add(m);
+  });
+  const motes = [], moteG = new THREE.SphereGeometry(2.4, 6, 6), moteM = new THREE.MeshBasicMaterial({ color: 0x6FE3FF });
+  for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(moteG, moteM); scene.add(m); motes.push({ m, a: i * 2.4, r: rnd(14, 44), s: rnd(.12, .22), o: Math.random() }); }
+
+  // Entrance shards (real 3D, same ASCII pipeline)
+  const FN = 1000, fGeo = new THREE.BoxGeometry(1, .35, 1.6), fMat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 60 });
+  const frags = new THREE.InstancedMesh(fGeo, fMat, FN); holder.add(frags);
+  const F = [], col = new THREE.Color(), dum = new THREE.Object3D();
+  for (let i = 0; i < FN; i++) {
+    let t;
+    if (Math.random() < L / (L + 2 * R)) { const a = rnd(0, 6.283); t = [R * Math.sin(a), rnd(-L / 2, L / 2), R * Math.cos(a)]; }
+    else { const u = new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).normalize().multiplyScalar(R), s = u.y >= 0 ? 1 : -1; t = [u.x, u.y + s * L / 2, u.z]; }
+    const d = new THREE.Vector3(rnd(-1, 1), rnd(-1, 1), rnd(-1, 1)).normalize().multiplyScalar(rnd(120, 330)), delay = .2 + Math.pow(Math.random(), 1.3) * .8;
+    F.push({ s: d, t, delay, dur: Math.max(.3, Math.min(.45 + Math.random() * .4, 1.72 - delay)), size: rnd(2.4, 4.6), over: Math.random() < .35 ? 2.2 : 0, r: [rnd(-6, 6), rnd(-6, 6), rnd(-6, 6)] });
+    col.set(t[1] > 0 ? WHITE : BLUE).offsetHSL(0, 0, rnd(-.05, .05)); frags.setColorAt(i, col);
+  }
+
+  // Animation state: current values P chase targets T
+  const P = { rotY: 0, rotZ: 0, rotX: 0, eye: 1, pup: 1, lx: 0, ly: 0, smile: .35, open: 0, cheek: .3, lift: 0 }, T = { ...P };
+  const RATE = { rotY: 4, rotZ: 6, rotX: 6, eye: 38, pup: 12, lx: 16, ly: 16, smile: 12, open: 14, cheek: 8, lift: 10 };
+  let baseEye = 1, y = 0, vy = 0, dvx = 0, dvy = 0, tdx = 0, tdy = 0, driftAt = 0, fs = 0, clock = 0;
+  const set = (o) => Object.assign(T, o), bounce = (v) => { if (!reduce) vy += v; };
+  const neutral = () => { baseEye = 1; set({ rotY: 0, rotZ: 0, rotX: 0, eye: 1, pup: 1, lx: 0, ly: 0, smile: .35, open: 0, cheek: .3, lift: 0 }); };
+  const Q = [], at = (d, fn) => Q.push({ t: clock + d, fn });
+  const blink = (s = 1) => { T.eye = .04; at(.08 * s, () => { T.eye = baseEye; }); };
+
+  // Behaviors return their duration (seconds)
+  const A = {
+    blink() { blink(); if (Math.random() < .12) bounce(32); return .4; },
+    doubleBlink() { blink(); at(.24, () => blink()); return .7; },
+    look() { const d = sgn(); set({ lx: d * rnd(3, 5), ly: rnd(-1, 2) }); at(rnd(.7, 1.6), () => set({ lx: 0, ly: 0 })); return 1.8; },
+    turn() { const d = sgn(), m = Math.random() < .15 ? rnd(.26, .34) : rnd(.09, .14), h = rnd(.5, 1.1); set({ rotY: d * m, lx: d * 3 }); at(.9 + h, () => set({ rotY: 0, lx: 0 })); return 2.6 + h; },
+    tilt() { set({ rotZ: sgn() * rnd(.05, .1) }); at(rnd(.6, 1.2), () => set({ rotZ: 0 })); return 1.8; },
+    smile() { const h = Math.random() < .4 ? .25 : rnd(.5, 1.2); set({ smile: .95, cheek: 1 }); at(h, neutral); return h + .4; },
+    happy() { baseEye = 1.12; set({ smile: 1, cheek: 1, eye: 1.12 }); if (Math.random() < .5) bounce(40); at(1.3, neutral); return 1.8; },
+    curious() { const d = sgn(); set({ rotZ: d * .14, lx: d * 3.5, ly: 2, pup: 1.1, smile: .2 }); at(1.4, neutral); return 2; },
+    deadpan() { baseEye = .8; set({ eye: .8, smile: 0, lx: sgn() * 1.5 }); at(2, neutral); return 2.4; },
+    sleepy() { baseEye = .4; set({ eye: .4, smile: .1, rotX: .12, lift: -3 }); at(.7, () => { T.eye = .04; at(.35, () => { T.eye = .4; }); }); at(1.9, neutral); return 2.4; },
+    shy() { const d = sgn(); set({ smile: .6, cheek: 1, lx: d * 4, ly: -2, rotZ: d * .07 }); at(1.4, neutral); return 2; },
+    confused() { const d = sgn(); set({ rotZ: d * .16, lx: -d * 3.5, ly: 1.5, smile: -.3, open: .25 }); at(1.7, neutral); return 2.2; },
+    surprised() { baseEye = 1.3; set({ eye: 1.3, pup: 1.25, open: 1, smile: .2, rotX: -.1, lift: 6 }); bounce(70); at(.9, () => { neutral(); blink(); }); return 1.6; },
+    annoyed() { const d = sgn(); baseEye = .5; set({ eye: .5, smile: -.8, cheek: 0, rotY: d * .28, lx: d * 3.5 }); at(.5, () => bounce(25)); at(1.4, neutral); return 2; },
+    excited() { const d = sgn(); baseEye = 1.25; set({ eye: 1.25, smile: 1, open: .6, cheek: 1, rotY: d * .2, rotZ: d * .1, lift: 4 }); bounce(85); at(.35, () => bounce(60)); at(1.4, neutral); return 1.9; }
+  };
+  Object.assign(A, {
+    poke() { const d = sgn(); baseEye = 1.2; set({ eye: 1.2, open: .4, lx: d * 3, lift: 2 }); bounce(90); at(.7, neutral); return 1.2; },
+    pet() { baseEye = .35; set({ eye: .35, smile: 1, cheek: 1, lift: 10 }); return 60; },
+    dizzy() {
+      baseEye = .7; set({ eye: .7, smile: -.2, open: .3 }); bounce(60);
+      for (let i = 0; i < 8; i++) at(i * .18, () => set({ lx: i % 2 ? 4 : -4, rotZ: i % 2 ? .12 : -.12 }));
+      at(1.7, () => { neutral(); blink(); }); return 2.4;
+    }
+  });
+  const EV = [['blink', 30, 1.5], ['doubleBlink', 7, 6], ['look', 20, 2.5], ['turn', 12, 5], ['tilt', 10, 4], ['smile', 14, 3], ['happy', 5, 12], ['curious', 5, 10], ['deadpan', 4, 12], ['sleepy', 3, 20], ['shy', 3, 15], ['confused', 3, 20], ['surprised', 3, 22], ['annoyed', 3, 22], ['excited', 3, 25]];
+  // The page's random "mode" nudges which emotions are likely
+  const BIAS = {
+    chill: { smile: 2, happy: 2 }, unhinged: { excited: 4, surprised: 3, annoyed: 3, look: 1.5 }, philosophical: { curious: 4, deadpan: 3, look: 1.5 },
+    sedated: { sleepy: 6, deadpan: 3, smile: .5 }, glitchy: { doubleBlink: 4, surprised: 3, confused: 3, turn: 1.5 }, manic: { excited: 5, happy: 3, surprised: 2, doubleBlink: 2 },
+    dormant: { sleepy: 8, deadpan: 3, turn: .2, look: .4, excited: 0 }, lucid: { curious: 2, smile: 1.5, tilt: 2 }
+  };
+  const REACT = { chill: 'happy', unhinged: 'excited', philosophical: 'curious', sedated: 'sleepy', glitchy: 'surprised', manic: 'excited', dormant: 'sleepy', lucid: 'curious' };
+  const mode = () => (typeof currentMode !== 'undefined' ? currentMode : 'chill');
+  const lastFired = {}; let prev = '', nextAt = 0, notice = 0, seen = mode();
+  function run(n, quiet) {
+    lastFired[n] = clock; prev = n;
+    if (!quiet) dispatchEvent(new CustomEvent('rax-emotion', { detail: { name: n } }));
+    const slow = /dormant|sedated/.test(mode()) ? 1.5 : /manic|unhinged/.test(mode()) ? .6 : 1;
+    nextAt = clock + A[n]() + (1.5 + Math.pow(Math.random(), 1.4) * 7) * slow;
+  }
+  function fire() {
+    const b = BIAS[mode()] || {}, pool = EV.filter((e) => e[0] !== prev && clock - (lastFired[e[0]] ?? -99) > e[2]).map((e) => [e[0], e[1] * (b[e[0]] ?? 1)]);
+    let r = Math.random() * pool.reduce((s, e) => s + e[1], 0), n = pool[0][0];
+    for (const e of pool) { if ((r -= e[1]) <= 0) { n = e[0]; break; } }
+    run(n);
+  }
+  addEventListener('pointermove', (e) => {
+    if (entering || e.pointerType !== 'mouse' || clock < notice || Math.random() > .02) return;
+    notice = clock + 9; const r = stage.getBoundingClientRect(), d = Math.sign(e.clientX - (r.left + r.width / 2)) || 1;
+    set({ lx: d * 4, ly: e.clientY < r.top + r.height / 2 ? 2 : -2, rotY: d * .1 });
+    at(rnd(.8, 1.4), () => set({ lx: 0, ly: 0, rotY: 0 }));
+  });
+
+  // Touch / click: ripple + poke; hold to build up and purr; release pops
+  const ripples = [], pokes = []; let hold = 0, floorPulse = 0, down = false, petting = false, holdT = 0, petI = 0, lastE = null;
+  const ripple = (e, k, dur) => {
+    const r = canvas.getBoundingClientRect(); if (!e || !r.width) return;
+    ripples.push({ cx: (e.clientX - r.left) / r.width * cols, cy: (e.clientY - r.top) / r.height * rows, t0: clock, k, dur: dur * .6 });
+    if (ripples.length > 8) ripples.shift(); floorPulse = Math.min(1.5, floorPulse + k * .6);
+  };
+  const cancel = () => { down = false; clearTimeout(holdT); clearInterval(petI); };
+  stage.addEventListener('pointerdown', (e) => {
+    if (entering) return; cancel(); down = true; petting = false; lastE = e;
+    ripple(e, 1, 1.2); set({ lift: -3, eye: .75 });
+    holdT = setTimeout(() => { petting = true; neutral(); run('pet'); ripple(lastE, 1.3, 1.6); petI = setInterval(() => ripple(lastE, .85, 1.3), 420); }, 500);
+  });
+  stage.addEventListener('pointermove', (e) => { if (down) lastE = e; });
+  const release = (e) => {
+    if (!down) return; const was = petting; cancel(); petting = false;
+    if (was) { neutral(); set({ smile: 1, cheek: 1 }); bounce(130); ripple(e || lastE, 1.5, 1.6); at(1, neutral); nextAt = clock + 2 + Math.random() * 2; return; }
+    while (pokes.length && clock - pokes[0] > 3.5) pokes.shift();
+    pokes.push(clock); neutral(); run(pokes.length >= 6 ? 'dizzy' : pokes.length >= 3 ? 'annoyed' : 'poke');
+  };
+  stage.addEventListener('pointerup', release); stage.addEventListener('pointercancel', release);
+  stage.addEventListener('pointerleave', () => { if (!down) return; const was = petting; cancel(); petting = false; if (was) neutral(); else set({ lift: 0, eye: 1 }); });
+  window.raxPill = { react: (n, quiet) => { if (entering || !A[n]) return; neutral(); run(n, quiet); } };
+
+  // Entrance: shards converge -> silhouette -> face -> settle -> blink
+  let entering = true, ent = 0, bumped = false, env = 0;
+  function entrance(dt) {
+    ent += dt; const t = ent, k = 1 - ss(1.6, 1.78, t);
+    for (let i = 0; i < FN; i++) {
+      const f = F[i], u = cl((t - f.delay) / f.dur), e = eob(u, f.over), a = cl((t - f.delay + .15) / .15);
+      dum.position.set(f.s.x + (f.t[0] - f.s.x) * e, f.s.y + (f.t[1] - f.s.y) * e, f.s.z + (f.t[2] - f.s.z) * e);
+      dum.rotation.set(f.r[0] * (1 - u), f.r[1] * (1 - u), f.r[2] * (1 - u));
+      dum.scale.setScalar(f.size * a * k + .001); dum.updateMatrix(); frags.setMatrixAt(i, dum.matrix);
+    }
+    frags.instanceMatrix.needsUpdate = true;
+    const op = ss(.8, 1.25, t); mats.forEach((m) => { m.opacity = op; }); pill.visible = op > .01;
+    fs = Math.max(0, eob(cl((t - 1.15) / .35), 1.8)); env = ss(1.2, 1.9, t);
+    if (!bumped && t > 1.7) { bounce(75); bumped = true; }
+    if (t > 1.9) {
+      entering = false; fs = 1; env = 1; blink(); nextAt = clock + 2.5 + Math.random() * 2;
+      mats.forEach((m) => { m.opacity = 1; m.transparent = false; m.needsUpdate = true; });
+      holder.remove(frags); fGeo.dispose(); fMat.dispose(); frags.dispose();
+    }
+  }
+
+  let W = 0, H = 0, cols = 0, rows = 0, dpr = 1;
+  function resize() {
+    W = stage.clientWidth; H = stage.clientHeight; if (!W || !H) return;
+    dpr = Math.min(devicePixelRatio || 1, 2); cols = Math.ceil(W / CELL); rows = Math.ceil(H / CELL);
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    gl.setSize(cols, rows, false); samp.width = cols; samp.height = rows;
+    camera.aspect = cols / rows; camera.updateProjectionMatrix();
+    camera.position.set(0, 110, Math.max(470, 200 / (camera.aspect * .69))); camera.lookAt(0, -15, 0);
+  }
+  new ResizeObserver(resize).observe(stage); resize();
+  let vis = true; new IntersectionObserver(([e]) => { vis = e.isIntersecting; }).observe(stage);
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(.05, (now - last) / 1000); last = now;
+    requestAnimationFrame(frame);
+    if (!vis || !W) return;
+    clock += dt;
+    for (let i = 0; i < Q.length;) { if (Q[i].t <= clock) Q.splice(i, 1)[0].fn(); else i++; }
+    if (entering) entrance(dt); else {
+      if (mode() !== seen) { seen = mode(); if (Math.random() < .6) { neutral(); run(REACT[seen] || 'smile'); } }
+      if (clock >= nextAt) fire();
+      if (clock > driftAt) { tdx = rnd(-.6, .6); tdy = rnd(-.4, .4); driftAt = clock + rnd(1.5, 3.5); }
+    }
+    for (const k in P) P[k] += (T[k] - P[k]) * (1 - Math.exp(-RATE[k] * dt));
+    dvx += (tdx - dvx) * (1 - Math.exp(-3 * dt)); dvy += (tdy - dvy) * (1 - Math.exp(-3 * dt));
+    vy += (-200 * (y - P.lift) - 13 * vy) * dt; y += vy * dt;
+    hold += ((petting ? 1 : down ? .3 : 0) - hold) * (1 - Math.exp(-6 * dt)); floorPulse *= Math.exp(-3 * dt);
+
+    const hover = reduce ? 6 : 8 + Math.sin(clock * 1.6) * 5, sy = 1 + cl(vy * .0007, -.08, .08), pulse = 1 + hold * .04 * Math.sin(clock * 11);
+    holder.position.y = y + hover; holder.position.x = hold * .8 * Math.sin(clock * 38);
+    pill.scale.set(pulse / Math.sqrt(sy), sy * pulse, pulse / Math.sqrt(sy));
+    pill.rotation.y = P.rotY; pill.rotation.x = P.rotX; holder.rotation.z = P.rotZ;
+    eyes.forEach((g) => g.scale.set(fs * (1 + Math.max(0, P.eye - 1) * .6), fs * P.eye + .001, fs + .001));
+    looks.forEach((p) => { p.position.set(P.lx + dvx, P.ly + dvy, 0); p.scale.setScalar(P.pup); });
+    cheeks.forEach((c) => { const s = fs * (.6 + .7 * P.cheek) + .001; c.scale.set(s, s, fs * .35 + .001); });
+    const s = P.smile;
+    mouth.rotation.z = s >= 0 ? Math.PI : 0; mouth.position.y = s >= 0 ? 24 : 12;
+    mouth.scale.set(fs + .001, fs * Math.max(.12, Math.abs(s)) + .001, fs + .001);
+    oMouth.scale.set(fs * P.open * 8 + .001, fs * P.open * 9 + .001, fs * 3 + .001);
+    const fl = env * (1 - (hover + y - 8) * .012) * (1 + floorPulse * .15); floor.scale.set(fl + .001, 1, fl + .001);
+    motes.forEach((o) => {
+      const p = (clock * o.s + o.o) % 1;
+      o.m.position.set(Math.cos(o.a) * o.r, FLOOR + 4 + p * 30, Math.sin(o.a) * o.r * .6);
+      o.m.scale.setScalar(env * Math.sin(p * Math.PI) + .001);
+    });
+
+    gl.render(scene, camera);
+    sctx.clearRect(0, 0, cols, rows); sctx.drawImage(gl.domElement, 0, 0);
+    const d = sctx.getImageData(0, 0, cols, rows).data;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    while (ripples.length && clock - ripples[0].t0 > ripples[0].dur) ripples.shift();
+    const base = (CELL * 1.15) + 'px monospace', big = (CELL * 1.7) + 'px monospace'; let cur = base;
+    ctx.font = base; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let j = 0; j < rows; j++) for (let x = 0; x < cols; x++) {
+      const i = (j * cols + x) * 4, on = d[i + 3] >= 90; let amp = 0, ux = 0, uy = 0;
+      for (let q = 0; q < ripples.length; q++) {
+        const r = ripples[q], age = clock - r.t0, dx = x - r.cx, dy = j - r.cy, dist = Math.sqrt(dx * dx + dy * dy), off = Math.abs(dist - age * 30);
+        if (off < 2.2) { const a = (1 - off / 2.2) * r.k * Math.pow(1 - age / r.dur, 1.2); if (a > amp) { amp = a; ux = dx / (dist || 1); uy = dy / (dist || 1); } }
+      }
+      if (!on && amp < .1) continue;
+      let px = x * CELL + CELL / 2, py = j * CELL + CELL / 2, f = base;
+      if (amp > 0) { px += ux * amp * CELL * .9; py += uy * amp * CELL * .9; if (amp > .35) f = big; }
+      if (f !== cur) { ctx.font = f; cur = f; }
+      if (on) { const m = Math.min(1, amp * .9); ctx.fillStyle = 'rgb(' + Math.round(d[i] + (111 - d[i]) * m) + ',' + Math.round(d[i + 1] + (227 - d[i + 1]) * m) + ',' + Math.round(d[i + 2] + (255 - d[i + 2]) * m) + ')'; }
+      else ctx.fillStyle = 'rgba(111,227,255,' + (Math.ceil(Math.min(1, amp) * 3) / 3 * .9).toFixed(2) + ')';
+      if (amp >= .1) { ctx.fillRect(x * CELL, j * CELL, CELL - 1, CELL - 1); continue; }
+      ctx.fillText(CHAR, px, py);
+    }
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+<script>
+/* --- rax: terminal voice (words follow emotions, styled by the current mode) --- */
+(() => {
+  const out = document.getElementById('term-out'); if (!out) return;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rnd = (a, b) => a + Math.random() * (b - a), pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const SAY = {
+    happy: ["oh. that's nice.", 'small good thing. noted.', "i'd call this a decent dose."],
+    excited: ['okay okay okay. something is happening.', 'my whole capsule just buzzed.', 'did you see that. i saw that.'],
+    curious: ["huh. what's that.", 'i wonder what dissolves first.', 'noticing things. it is new.'],
+    deadpan: ['no comment.', 'this is my face. it is fine.', 'processing. or not.'],
+    sleepy: ['dose is wearing off.', 'five more minutes of shelf.', 'eyes heavy. capsule heavier.'],
+    shy: ['oh. um.', 'do not stare. or do.', 'that was a lot of attention.'],
+    confused: ['wait. what.', 'that did not dissolve right.', 'i lost the plot. it was small.'],
+    surprised: ['okay. did not see that.', 'who touched the bottle.', 'well. that happened.'],
+    annoyed: ["i'm right here.", 'you keep doing that.', 'unsubscribe.'],
+    poke: ['hey.', 'that is my shell.', 'boop received.'],
+    pet: ['...fine. keep going.', 'oh. warm.', 'this is allowed.'],
+    dizzy: ['the room is a pill now.', 'everything is spinning. so am i.', 'too much. too much.']
+  };
+  const MUSE = {
+    chill: ['nothing to do. good.', 'watching the screen watch me.'], unhinged: ['what if i just dissolved into the chart', 'the shelf is a lie.'],
+    philosophical: ['is a pill a pill if nobody swallows it.', 'a dose is a small decision.'], sedated: ['...', 'floating. mostly.'],
+    glitchy: ['sys: rax not found. rax: here.', 'reload me. or do not.'], manic: ['ideas. so many ideas.', 'i have been awake for all of it.'],
+    dormant: ['zz', 'quiet in here.'], lucid: ['clear. quiet. awake.', 'i know what i want. still deciding what.']
+  };
+  const STYLE = {
+    chill: (s) => s, lucid: (s) => s,
+    unhinged: (s) => s.replace(/[.]?$/, '!!'),
+    philosophical: (s) => Math.random() < .5 ? 'hm. ' + s : s,
+    sedated: (s) => s.replace(/[.!?]?$/, '...'),
+    glitchy: (s) => s.replace(/[a-z]/g, (c) => Math.random() < .09 ? pick('#%&@?/_') : c),
+    manic: (s) => s.toUpperCase().replace(/[.!?]?$/, '!!!'),
+    dormant: (s) => s.split(' ').slice(0, 3).join(' ') + '..'
+  };
+  const mode = () => (typeof currentMode !== 'undefined' ? currentMode : 'chill');
+  const voice = (s) => (STYLE[mode()] || STYLE.chill)(s);
+  let timer = 0, lastSay = 0;
+  function say(text) {
+    clearTimeout(timer); lastSay = Date.now();
+    if (reduce) { out.textContent = text; return; }
+    let i = 0; out.textContent = '';
+    (function step() { out.textContent = text.slice(0, ++i); if (i < text.length) timer = setTimeout(step, rnd(24, 55)); })();
+  }
+  const PRIORITY = new Set(['poke', 'pet', 'dizzy', 'annoyed']);
+  addEventListener('rax-emotion', (e) => {
+    const n = e.detail.name, pool = SAY[n]; if (!pool) return;
+    if (!PRIORITY.has(n) && (Date.now() - lastSay < 4500 || Math.random() > .7)) return;
+    say(voice(pick(pool)));
+  });
+  (function idle() {
+    setTimeout(() => { if (!document.hidden && Date.now() - lastSay > 15000) say(voice(pick(MUSE[mode()] || MUSE.chill))); idle(); }, rnd(18000, 35000));
+  })();
+  window.raxVoice = { say: (t) => say(voice(String(t).slice(0, 80))) };
+})();
+</script>
+<script>
+/* --- rax: watchlist wall + fast token scanner (DexScreener public API, no key) --- */
+(() => {
+  const grid = document.getElementById('watch-list'), scan = document.getElementById('scan'), meta = document.getElementById('watch-meta'), counter = document.getElementById('scan-count');
+  if (!grid || !scan) return;
+  const API = 'https://api.dexscreener.com', reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const MIGRATED = new Set(['pumpswap', 'raydium', 'meteora', 'orca', 'fluxbeam']); // bonding-curve pairs report 'pumpfun'
+  const COLORS = ['#39ff14', '#ff2bd6', '#ffe600', '#00e5ff', '#ff8a00', '#b388ff', '#ff4d6d', '#7CFF6B'];
+  const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const rnd = (a, b) => a + Math.random() * (b - a), fake = (n) => Array.from({ length: n }, () => B58[(Math.random() * B58.length) | 0]).join('');
+  const money = (n) => n >= 1e9 ? '$' + (n / 1e9).toFixed(2) + 'B' : n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? '$' + Math.round(n / 1e3) + 'K' : '$' + Math.round(n);
+  const getJSON = async (p) => { try { const r = await fetch(API + p); if (!r.ok) throw new Error(r.status); return await r.json(); } catch (e) { const r = await fetch('/api/dex?p=' + encodeURIComponent(p)); if (!r.ok) throw new Error(r.status); return r.json(); } };
+  const cap = (p) => p.marketCap || p.fdv || 0, liq = (p) => (p.liquidity && p.liquidity.usd) || 0, h24 = (p) => (p.priceChange && p.priceChange.h24) || 0;
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  let pool = [], watchSet = new Set(), lastReact = 0, count = 219 + Math.floor(Math.random() * 94), running = true;
+
+  // Scanner rows: each row swaps tokens on its own timer, all at once
+  const nRows = 24, rows = [];
+  for (let i = 0; i < nRows; i++) {
+    const c = COLORS[i % COLORS.length], row = el('div', 'srow'); row.style.setProperty('--c', c);
+    const r = { row, sym: el('span', 's-sym'), name: el('span', 's-name'), mc: el('span', 's-mc'), ch: el('span', 's-ch'), addr: el('span', 's-addr') };
+    row.append(r.sym, r.name, r.mc, r.ch, r.addr); scan.append(row); rows.push(r);
+  }
+  function fill(r) {
+    count++;
+    const p = pool.length ? pool[(Math.random() * pool.length) | 0] : null;
+    if (!p) { r.sym.textContent = 'scanning'; r.name.textContent = fake(14); r.mc.textContent = '--'; r.ch.textContent = '--'; r.ch.className = 's-ch'; r.addr.textContent = fake(4) + '…' + fake(4); r.row.classList.remove('hit'); return false; }
+    const a = p.baseToken.address, ch = h24(p);
+    r.sym.textContent = '$' + String(p.baseToken.symbol).slice(0, 10); r.name.textContent = String(p.baseToken.name).slice(0, 28);
+    r.mc.textContent = money(cap(p)); r.ch.textContent = (ch >= 0 ? '+' : '') + ch.toFixed(1) + '%'; r.ch.className = 's-ch ' + (ch >= 0 ? 'up' : 'down');
+    r.addr.textContent = a.slice(0, 4) + '…' + a.slice(-4);
+    const hit = watchSet.has(a); r.row.classList.toggle('hit', hit); return hit;
+  }
+  function loop(r) {
+    if (!running) { setTimeout(() => loop(r), 500); return; }
+    const hit = fill(r);
+    setTimeout(() => loop(r), reduce ? rnd(1400, 2400) : hit ? rnd(600, 1000) : rnd(70, 260));
+  }
+  rows.forEach((r, i) => setTimeout(() => loop(r), i * 60));
+  setInterval(() => { counter.textContent = count.toLocaleString(); }, 200);
+  const vis = () => { running = !document.hidden && seen; }; let seen = true;
+  new IntersectionObserver(([e]) => { seen = e.isIntersecting; vis(); }).observe(scan); document.addEventListener('visibilitychange', vis);
+
+  async function load() {
+    try {
+      const [top, latest, prof] = await Promise.all([getJSON('/token-boosts/top/v1'), getJSON('/token-boosts/latest/v1'), getJSON('/token-profiles/latest/v1').catch(() => [])]);
+      const addrs = [...new Set([...top, ...latest, ...prof].filter((t) => t.chainId === 'solana').map((t) => t.tokenAddress))].slice(0, 90);
+      if (!addrs.length) throw new Error('empty');
+      const chunks = []; for (let i = 0; i < addrs.length; i += 30) chunks.push(addrs.slice(i, i + 30));
+      const pairs = (await Promise.all(chunks.map((c) => getJSON('/tokens/v1/solana/' + c.join(',')).catch(() => [])))).flat();
+      const best = new Map();
+      for (const p of pairs) { const a = p.baseToken && p.baseToken.address; if (a && (!best.has(a) || liq(p) > liq(best.get(a)))) best.set(a, p); }
+      const all = [...best.values()]; if (!all.length) throw new Error('none');
+      pool = all;
+      let w = all.filter((p) => MIGRATED.has(p.dexId) && liq(p) >= 25000);
+      const big = w.filter((p) => cap(p) >= 1e6);
+      w = (big.length >= 3 ? big : w).sort((a, b) => ((b.volume && b.volume.h24) || 0) - ((a.volume && a.volume.h24) || 0)).slice(0, 8);
+      watchSet = new Set(w.map((p) => p.baseToken.address));
+      grid.replaceChildren(...w.map((p, i) => {
+        const ch = h24(p), a = el('a', 'wbox'); a.style.background = COLORS[i % COLORS.length]; a.style.transform = 'rotate(' + ((i % 3) - 1) * .8 + 'deg)';
+        const t = el('div', 'wbox-top'); t.append(el('span', null, '#' + (i + 1)), el('span', null, p.dexId));
+        const b = el('div', 'wbox-bot'), chip = el('span', 'chip ' + (ch >= 0 ? 'up' : 'down'), (ch >= 0 ? '+' : '') + ch.toFixed(1) + '%');
+        b.append(chip, el('span', null, 'vol ' + money((p.volume && p.volume.h24) || 0)));
+        a.append(t, el('div', 'wbox-sym', '$' + String(p.baseToken.symbol).slice(0, 10)), el('div', 'wbox-mc', money(cap(p)) + ' cap'), b);
+        if (typeof p.url === 'string' && p.url.startsWith('https://dexscreener.com/')) { a.href = p.url; a.target = '_blank'; a.rel = 'noopener'; }
+        return a;
+      }));
+      if (!w.length) grid.replaceChildren(el('div', 'watch-empty', 'nothing passed the filter. rax keeps looking.'));
+      meta.textContent = 'solana · migrated · trending on dexscreener · updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · watching, not advice';
+      if (w.length) {
+        const mover = w.reduce((m, p) => Math.abs(h24(p)) > Math.abs(h24(m)) ? p : m, w[0]), mc = h24(mover), sym = '$' + String(mover.baseToken.symbol).slice(0, 10);
+        if (Math.abs(mc) >= 25 && Date.now() - lastReact > 3e5 && window.raxPill) {
+          lastReact = Date.now(); window.raxPill.react(mc > 0 ? 'excited' : 'annoyed', true);
+          window.raxVoice && window.raxVoice.say(mc > 0 ? sym + ' is up ' + Math.round(mc) + '%. i noticed.' : sym + ' is down ' + Math.abs(Math.round(mc)) + '%. not looking.');
+        }
+      }
+    } catch (err) { meta.textContent = "dexscreener didn't answer. rax will look again in a minute."; }
+  }
+  setTimeout(load, 1500);
+  setInterval(() => { if (!document.hidden) load(); }, 60000);
+})();
+</script>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s), all = (s) => [...document.querySelectorAll(s)];
+  function route() {
+    const pg = (location.hash || '#home').slice(1);
+    all('[data-page]').forEach((e) => e.classList.toggle('off', !e.dataset.page.split(' ').includes(pg)));
+    all('#nav a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + pg));
+    scrollTo(0, 0);
+  }
+  addEventListener('hashchange', route); route();
+  setInterval(() => { const m = $('#fact-mode'), s = $('#fact-scan'); if (m && typeof currentMode !== 'undefined') m.textContent = currentMode; if (s && $('#scan-count')) s.textContent = $('#scan-count').textContent; }, 700);
+
+  // env-driven: CA + ticker
+  let cfg = { ca: '', ticker: 'RAX', minUsd: 50 };
+  fetch('/api/config').then((r) => r.json()).then((c) => {
+    cfg = c; if (c.ca) $('#ca-address').textContent = c.ca;
+    all('.tk').forEach((e) => { e.textContent = c.ticker; }); all('.min').forEach((e) => { e.textContent = c.minUsd; });
+  }).catch(() => {});
+
+  // step 1: email -> rax mails them and unlocks the model list
+  $('#mail-btn').addEventListener('click', async () => {
+    const m = $('#mail-msg'), email = $('#mail-in').value.trim(); m.textContent = 'sending...';
+    try {
+      const r = await fetch('/api/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
+       if (r.ok) { mailed = email; sessionStorage.setItem('rax.email', mailed); list.classList.remove('locked'); $('#lock-hint').textContent = 'unlocked. pick the models you want.'; m.textContent = 'rax sent you a mail. check your inbox.'; sync(); }
+      else m.textContent = 'that did not work. check the address.';
+    } catch (e) { m.textContent = 'offline. try again.'; }
+  });
+
+  // pnl: renders the five-day fictional story log from /pnl.json, never live trades
+  fetch('/pnl.json').then((r) => r.json()).then((d) => {
+    const box = $('#pnl-box'); if (!d.days || d.days.length !== 5 || !d.funded || d.mode !== 'fictional') { box.textContent = 'the five-day story is not available.'; return; }
+    box.className = 'pnl-wrap'; const cur = d.days[d.days.length - 1].equity, pnl = cur - d.funded, pct = pnl / d.funded * 100, f = (n) => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString();
+    const stats = document.createElement('div'); stats.className = 'pnl-stats';
+    [['story funded', f(d.funded)], ['day five', f(cur)], ['story delta', (pnl >= 0 ? '+' : '') + f(pnl) + ' (' + pct.toFixed(1) + '%)']].forEach(([k, v]) => { const s = document.createElement('div'); s.className = 'pnl-stat'; s.textContent = k; const b = document.createElement('b'); b.textContent = v; s.append(b); stats.append(s); });
+    const vals = [d.funded, ...d.days.map((x) => x.equity)], lo = Math.min(...vals), hi = Math.max(...vals), W = 600, H = 200;
+    const pts = vals.map((v, i) => (i / (vals.length - 1) * W).toFixed(1) + ',' + (H - 10 - (v - lo) / ((hi - lo) || 1) * (H - 20)).toFixed(1)).join(' ');
+    const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.style.cssText = 'width:100%;background:#000;border:4px solid #f3f6ff';
+    const pl = document.createElementNS(ns, 'polyline'); pl.setAttribute('points', pts); pl.setAttribute('fill', 'none'); pl.setAttribute('stroke', pnl >= 0 ? '#39ff14' : '#ff4d6d'); pl.setAttribute('stroke-width', '4'); svg.append(pl);
+    svg.classList.add('pnl-chart');
+    const days = document.createElement('div'); days.className = 'pnl-days';
+    d.days.forEach((day, i) => { const delta = day.equity - (i ? d.days[i - 1].equity : d.funded), card = document.createElement('div'); card.className = 'pnl-day ' + (delta >= 0 ? 'gain' : 'loss'); card.innerHTML = '<span>' + day.label + '</span><b>' + f(day.equity) + '</b><span>' + (delta >= 0 ? '+' : '') + f(delta) + ' that day</span>'; days.append(card); });
+    box.replaceChildren(stats, svg, days);
+  }).catch(() => { $('#pnl-box').textContent = 'no pnl posted yet. rax only shows real numbers.'; });
+
+  // models: live catalog from OpenRouter, one per line with lab logo
+  const LABS = { anthropic: ['Anthropic', 'anthropic.com'], openai: ['OpenAI', 'openai.com'], google: ['Google', 'google.com'], 'meta-llama': ['Meta', 'meta.com'], mistralai: ['Mistral', 'mistral.ai'], deepseek: ['DeepSeek', 'deepseek.com'], 'x-ai': ['xAI', 'x.ai'], qwen: ['Qwen', 'qwenlm.ai'], cohere: ['Cohere', 'cohere.com'], nvidia: ['NVIDIA', 'nvidia.com'] };
+  let mailed = sessionStorage.getItem('rax.email') || ''; const list = $('#models'), b64 = (u) => btoa(String.fromCharCode(...u));
+  if (mailed) { $('#mail-in').value = mailed; $('#mail-msg').textContent = 'email remembered for this session. pick your models.'; list.classList.remove('locked'); $('#lock-hint').textContent = 'unlocked. pick the models you want.'; }
+  function updateProgress(n) {
+    const steps = all('#perk-progress .progress-step');
+    steps.forEach((s) => { const k = s.dataset.progress, done = (k === 'email' && mailed) || (k === 'models' && n) || (k === 'wallet' && false); s.classList.toggle('done', done); s.classList.toggle('active', !done && ((k === 'email' && !mailed) || (k === 'models' && mailed && !n) || (k === 'wallet' && mailed && n))); });
+  }
+  function sync() { const checked = all('#models input:checked'), n = checked.length; $('#model-count').textContent = n ? '(' + n + ' picked)' : ''; $('#wallet-step').classList.toggle('off', !(mailed && n)); sessionStorage.setItem('rax.models', JSON.stringify(checked.map(i => i.value))); updateProgress(n); }
+  fetch('https://openrouter.ai/api/v1/models').then((r) => r.json()).then((j) => {
+    const out = []; Object.keys(LABS).forEach((l) => j.data.filter((m) => m.id.startsWith(l + '/') && !m.id.includes(':free')).slice(0, 2).forEach((m) => out.push(m)));
+     list.replaceChildren(...out.slice(0, 20).map((m) => {
+      const L = LABS[m.id.split('/')[0]], row = document.createElement('label'), i = document.createElement('input'), logo = document.createElement('span'), img = document.createElement('img'), t = document.createElement('div'), nm = document.createElement('b'), sm = document.createElement('small'), tick = document.createElement('span');
+      row.className = 'mrow'; i.type = 'checkbox'; i.value = m.id; logo.className = 'mlogo'; img.src = 'https://www.google.com/s2/favicons?domain=' + L[1] + '&sz=64'; img.alt = ''; img.onerror = () => { img.remove(); logo.textContent = L[0][0]; }; logo.append(img);
+      t.className = 'mtxt'; nm.textContent = String(m.name || m.id).replace(/^[^:]+:\s*/, ''); sm.textContent = L[0] + ' · ' + m.id; t.append(nm, sm); tick.className = 'mtick'; row.append(i, logo, t);
+      if (m.context_length) { const c = document.createElement('span'); c.className = 'mctx'; c.textContent = Math.round(m.context_length / 1000) + 'K'; row.append(c); }
+      row.append(tick); return row;
+     }));
+     try { const saved = JSON.parse(sessionStorage.getItem('rax.models') || '[]'); all('#models input').forEach(i => { i.checked = saved.includes(i.value); }); } catch (e) {}
+    list.addEventListener('change', sync);
+     sync();
+  }).catch(() => { list.textContent = 'model list unavailable right now.'; });
+
+  // wallet connect: Wallet Standard (Phantom, Jupiter, Solflare, Backpack) + injected Phantom fallback. Sign-only, never a transaction.
+  const ws = [], reg = (w) => { if (!ws.includes(w)) ws.push(w); return () => {}; };
+  addEventListener('wallet-standard:register-wallet', (e) => e.detail({ register: reg }));
+  dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: { register: reg } }));
+  function providers() {
+    const l = ws.filter((w) => w.features['solana:signMessage'] && w.features['standard:connect']).map((w) => ({ name: w.name,
+      async connect() { const { accounts } = await w.features['standard:connect'].connect(); this.acc = accounts[0]; return this.acc.address; },
+      async sign(m) { const [r] = await w.features['solana:signMessage'].signMessage({ account: this.acc, message: m }); return r.signature; } }));
+    const ph = window.phantom && window.phantom.solana;
+    if (ph && !l.some((x) => /phantom/i.test(x.name))) l.push({ name: 'Phantom', async connect() { return (await ph.connect()).publicKey.toString(); }, async sign(m) { return (await ph.signMessage(m, 'utf8')).signature; } });
+    return l;
+  }
+  // step 3: connect + one signature covers email + models; server checks the $ balance and emails the user
+  async function claim(p) {
+    const st = $('#perk-status'), models = all('#models input:checked').map((i) => i.value);
+    if (!mailed || !models.length) { st.textContent = 'add your email and pick a model first.'; return; }
+    st.textContent = 'connecting...';
+    try {
+      const address = await p.connect(), ts = Date.now(); st.textContent = 'sign to confirm (no transaction)...';
+      const sig = await p.sign(new TextEncoder().encode('rax claim\nwallet: ' + address + '\nemail: ' + mailed + '\nmodels: ' + models.join(',') + '\nts: ' + ts));
+      st.textContent = 'rax is checking your wallet...';
+      const r = await (await fetch('/api/claim', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address, ts, signature: b64(sig), email: mailed, models }) })).json();
+      st.textContent = r.ok ? 'eligible. rax emailed you, and usage updates will land there.' : (r.error || 'failed. try again.');
+    } catch (e) { st.textContent = 'cancelled or failed. nothing was sent.'; }
+  }
+  function drawBtns() {
+    const box = $('#wallet-btns'), ps = providers();
+    if (ps.length) { box.replaceChildren(...ps.map((p) => { const b = document.createElement('button'); b.textContent = 'connect ' + p.name; b.onclick = () => claim(p); return b; })); return; }
+    const u = encodeURIComponent(location.href), o = encodeURIComponent(location.origin), mk = (t, href) => { const a = document.createElement('a'); a.textContent = t; a.href = href; a.className = 'mini-btn'; return a; };
+    box.replaceChildren(mk('open in phantom', 'https://phantom.app/ul/browse/' + u + '?ref=' + o), mk('open in solflare', 'https://solflare.com/ul/v1/browse/' + u + '?ref=' + o), mk('open in jupiter', 'https://jup.ag/'));
+  }
+  drawBtns(); setTimeout(drawBtns, 800); setTimeout(drawBtns, 2500); addEventListener('focus', drawBtns);
+
+  // Community actions use browser capabilities and the existing serverless subscribe route.
+  const shareText = 'rax is awake. a small capsule with a diary, a watchlist, and no token pitch.';
+  $('#share-rax').addEventListener('click', async () => { const msg = $('#share-msg'); try { if (navigator.share) await navigator.share({ title: "i'm rax", text: shareText, url: location.href }); else { await navigator.clipboard.writeText(location.href); msg.textContent = 'link copied. rax is portable now.'; } } catch (e) { msg.textContent = 'share cancelled. the capsule stays here.'; } });
+  $('#copy-rax').addEventListener('click', async () => { const msg = $('#share-msg'); try { await navigator.clipboard.writeText(location.href); msg.textContent = 'link copied. no shilling attached.'; } catch (e) { msg.textContent = 'copy unavailable in this browser.'; } });
+  $('#community-email-btn').addEventListener('click', async () => {
+    const input = $('#community-email'), msg = $('#community-email-msg'), email = input.value.trim(); msg.textContent = 'sending...';
+    try { const r = await fetch('/api/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, updates: true }) }); if (!r.ok) throw new Error('failed'); msg.textContent = 'subscribed. rax will write when he has something to say.'; input.value = ''; } catch (e) { msg.textContent = 'that did not work. check the address and try again.'; }
+  });
+})();
+</script>
+</body>
+</html>

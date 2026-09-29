@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Candle Dodge</title><link rel="stylesheet" href="style.css"></head>
+<body><a class="back" href="index.html">← games</a><canvas id="c"></canvas>
+<script src="common.js"></script>
+<script>
+const ID = 'candle-dodge', W = 360, H = 640, X = 90, GAP = 175, CW = 54, c = document.getElementById('c'), ctx = G.setup(c, W, H), bgi = G.img('assets/bg/candle-dodge.png');
+let s = 'ready', y = H / 2, vy = 0, obs = [], score = 0, dead = 0, best = G.best(ID), last = performance.now(), t = 0;
+function add(x) { obs.push({ x, top: G.rnd(110, H - 110 - GAP), p: false }); }
+function reset() { y = H / 2; vy = 0; score = 0; obs = []; for (let i = 0; i < 3; i++) add(W + 140 + i * 190); s = 'play'; }
+function die() { s = 'dead'; dead = performance.now(); G.save(ID, score); best = G.best(ID); }
+function tap() { if (s === 'ready') reset(); if (s === 'play') vy = -6.4; else if (s === 'dead' && performance.now() - dead > 500) reset(); }
+addEventListener('pointerdown', (e) => { if (e.target.closest('a')) return; e.preventDefault(); tap(); });
+addEventListener('keydown', (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); tap(); } });
+function frame(now) {
+  const dt = Math.min(2.5, (now - last) / 16.67); last = now; t += dt / 60; requestAnimationFrame(frame);
+  if (s === 'play') { vy += .4 * dt; y += vy * dt; obs.forEach((o) => { o.x -= (2.6 + Math.min(score * .05, 1.6)) * dt; }); if (obs[0].x < -CW - 10) { obs.shift(); add(obs[obs.length - 1].x + 190); } for (const o of obs) { if (!o.p && o.x + CW < X) { o.p = true; score++; } if (X + 13 > o.x && X - 13 < o.x + CW && (y - 22 < o.top || y + 22 > o.top + GAP)) die(); } if (y > H - 10 || y < -30) die(); }
+  G.bg(ctx, bgi, W, H, '#0a1633', '#150a2e'); obs.forEach((o) => { ctx.fillStyle = '#ff2b4d'; ctx.fillRect(o.x, -4, CW, o.top + 4); ctx.fillStyle = '#39ff14'; ctx.fillRect(o.x, o.top + GAP, CW, H); ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(o.x + 8, 0, 8, o.top); ctx.fillRect(o.x + 8, o.top + GAP, 8, H); ctx.fillStyle = '#fff'; ctx.fillRect(o.x + CW / 2 - 2, o.top, 4, 16); ctx.fillRect(o.x + CW / 2 - 2, o.top + GAP - 16, 4, 16); ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(o.x, -4, CW, o.top + 4); ctx.strokeRect(o.x, o.top + GAP, CW, H); });
+  const near = s === 'play' && obs.some((o) => o.x - X < 70 && o.x + CW > X - 30); G.shadow(ctx, X, H - 14, 26, .25); G.rax(ctx, X, y, 17, { rot: G.cl(vy * .06, -.5, .7), eye: near ? 1.4 : 1, open: near ? .8 : 0, smile: score >= 5 ? 1 : .4, dizzy: s === 'dead' });
+  G.text(ctx, score, W / 2, 90, 64, '#fff'); G.text(ctx, 'best ' + best, W / 2, 116, 14, '#8fa3c7');
+  if (s === 'ready') { G.text(ctx, 'CANDLE DODGE', W / 2, 250, 30, '#ffe600'); G.text(ctx, 'tap to fly', W / 2, 290, 18, '#fff'); G.text(ctx, 'dodge the candles', W / 2, 316, 13, '#8fa3c7'); }
+  if (s === 'dead') { G.text(ctx, 'RAX GOT RUGGED', W / 2, 250, 26, '#ff2b4d'); G.text(ctx, 'score ' + score + ' · best ' + best, W / 2, 288, 16, '#fff'); G.text(ctx, 'tap to retry', W / 2, 320, 15, '#ffe600'); }
+}
+requestAnimationFrame(frame);
+</script></body></html>

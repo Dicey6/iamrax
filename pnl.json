@@ -1,0 +1,11 @@
+{
+  "mode": "fictional",
+  "funded": 1000,
+  "days": [
+    { "label": "day 1", "equity": 650 },
+    { "label": "day 2", "equity": 358 },
+    { "label": "day 3", "equity": 780 },
+    { "label": "day 4", "equity": 1120 },
+    { "label": "day 5", "equity": 1400 }
+  ]
+}

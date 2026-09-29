@@ -1,5 +1,5 @@
 {
-  "mode": "fictional",
+  "mode": "archive",
   "funded": 1000,
   "days": [
     { "label": "day 1", "equity": 650 },

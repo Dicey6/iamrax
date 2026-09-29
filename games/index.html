@@ -1,0 +1,21 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Rax Games</title><link rel="stylesheet" href="style.css"></head>
+<body><a class="back" href="../#home">← rax</a><div class="wrap"><h1>rax<br>games</h1><p class="sub">pick one. tap to play.</p><div class="grid" id="grid"></div><p class="fine">best scores are saved on your device.</p></div>
+<script>
+const GAMES = [
+  { id: 'candle-dodge', file: 'candle-dodge.html', name: 'Candle Dodge', color: '#ff2bd6', cover: 'assets/covers/candle-dodge.jpg', blurb: 'Tap to fly rax through the candles. Do not get rugged.' },
+  { id: 'rax-jump', file: 'rax-jump.html', name: 'Rax Jump', color: '#39ff14', cover: 'assets/covers/rax-jump.jpg', blurb: 'Bounce up the chart. Steer with your finger. Avoid red candles.' },
+  { id: 'scan-sniper', file: 'scan-sniper.html', name: 'Scan Sniper', color: '#ffe600', cover: 'assets/covers/scan-sniper.jpg', blurb: 'Tokens flash by. Tap the green pumps before they flip.' },
+  { id: 'feed-rax', file: 'feed-rax.html', name: 'Feed Rax', color: '#00e5ff', cover: 'assets/covers/feed-rax.jpg', blurb: 'Feed him, play with him, put him to bed. He keeps living while you are away.' }
+];
+const grid = document.getElementById('grid');
+GAMES.forEach((g) => {
+  const a = document.createElement('a'); a.className = 'card'; a.href = g.file; a.style.background = g.color;
+  const best = g.id === 'feed-rax' ? 0 : (() => { try { return +localStorage.getItem('raxgames:best:' + g.id) || 0; } catch (e) { return 0; } })();
+  a.innerHTML = '<div class="cover"><div class="ph"></div></div><div class="cbody"><b></b><span></span><small></small></div>';
+  const cover = a.querySelector('.cover'), img = document.createElement('img'); img.alt = g.name + ' preview'; img.src = g.cover;
+  img.onload = () => { a.querySelector('.ph').remove(); cover.append(img); }; img.onerror = () => { img.remove(); };
+  a.querySelector('.ph').textContent = g.name[0]; a.querySelector('b').textContent = g.name; a.querySelector('span').textContent = g.blurb;
+  a.querySelector('small').textContent = g.id === 'feed-rax' ? 'PET' : best ? 'BEST ' + best : 'PLAY';
+  grid.append(a);
+});
+</script></body></html>

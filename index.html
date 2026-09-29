@@ -522,6 +522,31 @@
   .pnl-day{ padding:0.65rem 0.55rem; border:3px solid #000; background:#f3f6ff; color:#000; font:700 0.7rem/1.35 'IBM Plex Mono',monospace; }
   .pnl-day b{ display:block; font-size:1.1rem; margin-top:0.25rem; }
   .pnl-day.loss{ background:#ff4d6d; } .pnl-day.gain{ background:#39ff14; }
+  .money-calendar{ margin:0 0 1rem; border:3px solid #26345e; background:#080d1e; padding:0.8rem; }
+  .money-calendar-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; margin-bottom:0.8rem; }
+  .money-calendar-head strong{ color:#ffe600; font:900 clamp(1.2rem,4vw,1.7rem)/1 'Space Grotesk',sans-serif; text-transform:uppercase; }
+  .money-calendar-head span{ color:var(--dim); font:700 0.68rem 'IBM Plex Mono',monospace; text-transform:uppercase; text-align:right; }
+  .calendar-legend{ display:flex; flex-wrap:wrap; gap:0.7rem; margin-bottom:0.75rem; color:var(--dim); font:700 0.64rem 'IBM Plex Mono',monospace; text-transform:uppercase; }
+  .calendar-legend span{ display:inline-flex; align-items:center; gap:0.3rem; }
+  .calendar-legend i{ display:inline-block; width:10px; height:10px; border:2px solid currentColor; }
+  .calendar-legend .legend-active i{ background:#ffe600; color:#ffe600; }
+  .calendar-legend .legend-past i{ position:relative; color:#ff4d6d; }
+  .calendar-legend .legend-past i::after{ content:''; position:absolute; left:-2px; right:-2px; top:3px; border-top:2px solid #ff4d6d; transform:rotate(-35deg); }
+  .calendar-legend .legend-future i{ color:#26345e; }
+  .calendar-weekdays, .calendar-grid{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px; }
+  .calendar-weekdays{ margin-bottom:5px; color:#6FE3FF; font:800 0.62rem 'IBM Plex Mono',monospace; text-align:center; text-transform:uppercase; }
+  .calendar-grid{ grid-auto-rows:minmax(52px,auto); }
+  .cal-day{ position:relative; min-width:0; border:2px solid #1c2a52; padding:0.35rem; color:#50618d; font:700 0.66rem 'IBM Plex Mono',monospace; overflow:hidden; }
+  .cal-day.empty{ border-color:transparent; background:transparent; }
+  .cal-day.previous{ color:#7280a4; background:#10162b; opacity:0.62; }
+  .cal-day.previous::after{ content:''; position:absolute; left:7%; right:7%; top:50%; border-top:3px solid #ff4d6d; transform:rotate(-28deg); opacity:0.85; }
+  .cal-day.future{ color:#27365f; background:#080d1e; opacity:0.48; }
+  .cal-day.active{ border-color:#000; color:#000; background:#ffe600; box-shadow:3px 3px 0 #00e5ff; opacity:1; }
+  .cal-day.active.loss{ background:#ff4d6d; box-shadow:3px 3px 0 #ffe600; }
+  .cal-day.active.gain{ background:#39ff14; }
+  .cal-day.active.today{ outline:3px solid #f3f6ff; outline-offset:2px; z-index:1; }
+  .cal-day .cal-value{ display:block; margin-top:0.35rem; font-size:0.72rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cal-day .cal-delta{ display:block; margin-top:0.15rem; font-size:0.58rem; opacity:0.72; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .pnl-caption{ margin:0.9rem 0 0; color:var(--dim); font:0.7rem/1.5 'IBM Plex Mono',monospace; }
   .progress{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:1.2rem; }
   .progress-step{ padding:0.7rem; border:2px solid #26345e; background:#050810; color:var(--dim); font:700 0.68rem/1.35 'IBM Plex Mono',monospace; text-transform:uppercase; }
@@ -552,6 +577,11 @@
     .diary-tools{ align-items:flex-start; flex-direction:column; }
     .pnl-days{ grid-template-columns:repeat(2,1fr); }
     .pnl-day:last-child{ grid-column:1/-1; }
+    .calendar-grid{ grid-auto-rows:minmax(44px,auto); gap:3px; }
+    .calendar-weekdays{ font-size:0.55rem; }
+    .cal-day{ padding:0.25rem; font-size:0.58rem; }
+    .cal-day .cal-value{ font-size:0.6rem; }
+    .cal-day .cal-delta{ font-size:0.5rem; }
     .email-capture{ flex-direction:column; }
   }
   @media (prefers-reduced-motion: reduce){ *{ animation: none !important; } }
@@ -1250,9 +1280,33 @@
     const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.style.cssText = 'width:100%;background:#000;border:4px solid #f3f6ff';
     const pl = document.createElementNS(ns, 'polyline'); pl.setAttribute('points', pts); pl.setAttribute('fill', 'none'); pl.setAttribute('stroke', pnl >= 0 ? '#39ff14' : '#ff4d6d'); pl.setAttribute('stroke-width', '4'); svg.append(pl);
     svg.classList.add('pnl-chart');
-    const days = document.createElement('div'); days.className = 'pnl-days';
-    d.days.forEach((day, i) => { const delta = day.equity - (i ? d.days[i - 1].equity : d.funded), card = document.createElement('div'); card.className = 'pnl-day ' + (delta >= 0 ? 'gain' : 'loss'); card.innerHTML = '<span>' + day.label + '</span><b>' + f(day.equity) + '</b><span>' + (delta >= 0 ? '+' : '') + f(delta) + ' that day</span>'; days.append(card); });
-    box.replaceChildren(stats, svg, days);
+    const active = new Map(d.days.map((day, i) => [day.date, { day, delta: day.equity - (i ? d.days[i - 1].equity : d.funded) }]));
+    const lastDate = new Date(d.days[d.days.length - 1].date + 'T12:00:00Z'), firstDate = new Date(d.days[0].date + 'T12:00:00Z');
+    const monthStart = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), 1, 12)), monthEnd = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth() + 1, 0, 12));
+    const calendar = document.createElement('div'); calendar.className = 'money-calendar';
+    const calHead = document.createElement('div'); calHead.className = 'money-calendar-head';
+    const monthTitle = document.createElement('strong'); monthTitle.textContent = monthStart.toLocaleDateString([], { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const range = document.createElement('span'); range.textContent = 'activity · ' + firstDate.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' }) + ' → ' + lastDate.toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    calHead.append(monthTitle, range);
+    const legend = document.createElement('div'); legend.className = 'calendar-legend';
+    [['legend-active', 'active'], ['legend-past', 'past'], ['legend-future', 'upcoming']].forEach(([cls, label]) => { const s = document.createElement('span'); s.className = cls; s.innerHTML = '<i></i>' + label; legend.append(s); });
+    const weekdays = document.createElement('div'); weekdays.className = 'calendar-weekdays'; ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].forEach((name) => weekdays.appendChild(Object.assign(document.createElement('span'), { textContent: name })));
+    const grid = document.createElement('div'); grid.className = 'calendar-grid';
+    for (let i = 0; i < monthStart.getUTCDay(); i++) grid.appendChild(Object.assign(document.createElement('div'), { className: 'cal-day empty' }));
+    for (let dayNo = 1; dayNo <= monthEnd.getUTCDate(); dayNo++) {
+      const date = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth(), dayNo, 12)), key = date.toISOString().slice(0, 10), cell = document.createElement('div'), item = active.get(key);
+      cell.className = 'cal-day';
+      const num = document.createElement('span'); num.textContent = String(dayNo).padStart(2, '0'); cell.append(num);
+      if (item) {
+        cell.classList.add('active', item.delta >= 0 ? 'gain' : 'loss'); if (key === d.days[d.days.length - 1].date) cell.classList.add('today');
+        const value = document.createElement('span'); value.className = 'cal-value'; value.textContent = f(item.day.equity); cell.append(value);
+        const delta = document.createElement('span'); delta.className = 'cal-delta'; delta.textContent = (item.delta >= 0 ? '+' : '') + f(item.delta); cell.append(delta);
+      } else if (date < firstDate) cell.classList.add('previous');
+      else cell.classList.add('future');
+      grid.appendChild(cell);
+    }
+    calendar.append(calHead, legend, weekdays, grid);
+    box.replaceChildren(stats, calendar, svg);
   }).catch(() => { $('#pnl-box').textContent = 'no pnl posted yet. rax only shows real numbers.'; });
 
   // models: live catalog from OpenRouter, one per line with lab logo

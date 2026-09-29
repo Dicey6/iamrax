@@ -1,0 +1,24 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Rax Jump</title><link rel="stylesheet" href="style.css"></head>
+<body><a class="back" href="index.html">← games</a><canvas id="c"></canvas>
+<script src="common.js"></script>
+<script>
+const ID = 'rax-jump', W = 360, H = 640, c = document.getElementById('c'), ctx = G.setup(c, W, H), bgi = G.img('assets/bg/rax-jump.png');
+let s = 'ready', x, y, vy, tx, plats, haz, topY, score = 0, best = G.best(ID), last = performance.now(), vx = 0, dead = 0, kl = 0, kr = 0;
+function addPlat(py) { const t = Math.random() < .18 ? 1 : 0; plats.push({ x: G.rnd(10, W - 80), y: py, w: 70, dx: t ? 1.2 * (Math.random() < .5 ? -1 : 1) : 0, sp: Math.random() < .08 }); if (score > 150 && Math.random() < .12) haz.push({ x: G.rnd(30, W - 30), y: py - G.rnd(45, 65) }); }
+function reset() { x = W / 2; y = H - 120; vy = -10; tx = x; score = 0; plats = [{ x: W / 2 - 45, y: H - 60, w: 90, dx: 0, sp: false }]; haz = []; topY = H - 60; while (topY > -60) { topY -= G.rnd(55, 85); addPlat(topY); } s = 'play'; }
+function die() { s = 'dead'; dead = performance.now(); G.save(ID, Math.floor(score / 10)); best = G.best(ID); }
+addEventListener('pointerdown', (e) => { if (e.target.closest('a')) return; if (s === 'ready' || (s === 'dead' && performance.now() - dead > 500)) reset(); if (s === 'play') tx = G.pos(c, e, W, H).x; });
+addEventListener('pointermove', (e) => { if (s === 'play') tx = G.pos(c, e, W, H).x; });
+addEventListener('keydown', (e) => { if (e.code === 'ArrowLeft' || e.code === 'KeyA') kl = 1; if (e.code === 'ArrowRight' || e.code === 'KeyD') kr = 1; if (e.code === 'Space' && s !== 'play') reset(); });
+addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft' || e.code === 'KeyA') kl = 0; if (e.code === 'ArrowRight' || e.code === 'KeyD') kr = 0; });
+function frame(now) {
+  const dt = Math.min(2.5, (now - last) / 16.67); last = now; requestAnimationFrame(frame);
+  if (s === 'play') { const py = y, px = x; vy += .32 * dt; y += vy * dt; tx += (kr - kl) * 6 * dt; x += (tx - x) * Math.min(1, .22 * dt); vx = x - px; if (x < -15) { x += W + 30; tx += W + 30; } if (x > W + 15) { x -= W + 30; tx -= W + 30; } plats.forEach((p) => { if (p.dx) { p.x += p.dx * dt; if (p.x < 0 || p.x + p.w > W) p.dx *= -1; } }); if (vy > 0) for (const p of plats) if (py + 26 <= p.y + 6 && y + 26 >= p.y && x + 14 > p.x && x - 14 < p.x + p.w) { vy = p.sp ? -17 : -10.5; break; } if (y < H * .4) { const d = H * .4 - y; y = H * .4; plats.forEach((p) => { p.y += d; }); haz.forEach((h) => { h.y += d; }); topY += d; score += d; plats = plats.filter((p) => p.y < H + 20); haz = haz.filter((h) => h.y < H + 50); while (topY > -60) { topY -= G.rnd(55, 85 + Math.min(score / 60, 25)); addPlat(topY); } } if (haz.some((h) => Math.abs(x - h.x) < 20 && Math.abs(y - h.y) < 34) || y > H + 60) die(); }
+  G.bg(ctx, bgi, W, H, '#0a1633', '#1a0a3a'); plats.forEach((p) => { ctx.fillStyle = p.sp ? '#ffe600' : p.dx ? '#00e5ff' : '#39ff14'; ctx.fillRect(p.x, p.y, p.w, 12); ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(p.x, p.y, p.w, 12); if (p.sp) { ctx.fillStyle = '#ff2bd6'; ctx.fillRect(p.x + p.w / 2 - 8, p.y - 8, 16, 8); } }); haz.forEach((h) => { ctx.fillStyle = '#ff2b4d'; ctx.fillRect(h.x - 9, h.y - 22, 18, 44); ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(h.x - 9, h.y - 22, 18, 44); ctx.fillStyle = '#fff'; ctx.fillRect(h.x - 1.5, h.y - 32, 3, 10); });
+  const fall = vy > 6; if (s !== 'ready') G.rax(ctx, x, y, 17, { rot: G.cl(vx * .05, -.4, .4), eye: fall ? 1.3 : 1, open: fall ? .6 : 0, smile: vy < 0 ? 1 : .3, dizzy: s === 'dead' }); else G.rax(ctx, W / 2, H / 2 + 60, 26, { smile: 1 });
+  G.text(ctx, Math.floor(score / 10), W / 2, 70, 52, '#fff'); G.text(ctx, 'best ' + best, W / 2, 94, 14, '#8fa3c7');
+  if (s === 'ready') { G.text(ctx, 'RAX JUMP', W / 2, 230, 32, '#ffe600'); G.text(ctx, 'tap to start · drag to steer', W / 2, 262, 14, '#fff'); G.text(ctx, 'avoid the red candles', W / 2, 284, 13, '#8fa3c7'); }
+  if (s === 'dead') { G.text(ctx, 'RAX FELL', W / 2, 250, 30, '#ff2b4d'); G.text(ctx, 'height ' + Math.floor(score / 10) + ' · best ' + best, W / 2, 288, 16, '#fff'); G.text(ctx, 'tap to retry', W / 2, 320, 15, '#ffe600'); }
+}
+requestAnimationFrame(frame);
+</script></body></html>

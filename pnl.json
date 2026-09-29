@@ -2,10 +2,10 @@
   "mode": "archive",
   "funded": 1000,
   "days": [
-    { "label": "day 1", "equity": 650 },
-    { "label": "day 2", "equity": 358 },
-    { "label": "day 3", "equity": 780 },
-    { "label": "day 4", "equity": 1120 },
-    { "label": "day 5", "equity": 1400 }
+    { "label": "sep 25", "date": "2026-09-25", "equity": 742 },
+    { "label": "sep 26", "date": "2026-09-26", "equity": 358 },
+    { "label": "sep 27", "date": "2026-09-27", "equity": 962 },
+    { "label": "sep 28", "date": "2026-09-28", "equity": 833 },
+    { "label": "sep 29", "date": "2026-09-29", "equity": 1400 }
   ]
 }

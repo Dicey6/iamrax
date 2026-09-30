@@ -1275,7 +1275,7 @@
     const m = $('#mail-msg'), email = $('#mail-in').value.trim(); m.textContent = 'sending...';
     try {
       const r = await fetch('/api/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) });
-       if (r.ok) { mailed = email; sessionStorage.setItem('rax.email', mailed); list.classList.remove('locked'); $('#lock-hint').textContent = 'unlocked. pick the models you want.'; m.textContent = 'rax sent you a mail. check your inbox.'; sync(); }
+       if (r.ok) { mailed = email; sessionStorage.setItem('rax.email', mailed); list.classList.remove('locked'); $('#lock-hint').textContent = 'unlocked. pick the models you want.'; m.textContent = 'rax sent you a mail. check your inbox — and spam if it is missing.'; sync(); }
       else m.textContent = 'that did not work. check the address.';
     } catch (e) { m.textContent = 'offline. try again.'; }
   });
@@ -1343,16 +1343,25 @@
      sync();
   }).catch(() => { list.textContent = 'model list unavailable right now.'; });
 
-  // wallet connect: Wallet Standard (Phantom, Jupiter, Solflare, Backpack) + injected Phantom fallback. Sign-only, never a transaction.
+  // wallet connect: Wallet Standard + injected wallets. Sign-only, never a transaction.
   const ws = [], reg = (w) => { if (!ws.includes(w)) ws.push(w); return () => {}; };
-  addEventListener('wallet-standard:register-wallet', (e) => e.detail({ register: reg }));
+  addEventListener('wallet-standard:register-wallet', (e) => { if (typeof e.detail === 'function') e.detail({ register: reg }); });
   dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: { register: reg } }));
+  function feature(w, key) {
+    const f = w && w.features;
+    return f && (f[key] || (typeof f.get === 'function' ? f.get(key) : null));
+  }
+  function injected(name, w) {
+    return { name, async connect() { const r = await w.connect(); const key = r && r.publicKey ? r.publicKey : w.publicKey; if (!key) throw new Error('wallet did not return an address'); this.address = key.toString(); return this.address; }, async sign(m) { const r = await w.signMessage(m, 'utf8'); return r && r.signature ? r.signature : r; } };
+  }
   function providers() {
-    const l = ws.filter((w) => w.features['solana:signMessage'] && w.features['standard:connect']).map((w) => ({ name: w.name,
-      async connect() { const { accounts } = await w.features['standard:connect'].connect(); this.acc = accounts[0]; return this.acc.address; },
-      async sign(m) { const [r] = await w.features['solana:signMessage'].signMessage({ account: this.acc, message: m }); return r.signature; } }));
-    const ph = window.phantom && window.phantom.solana;
-    if (ph && !l.some((x) => /phantom/i.test(x.name))) l.push({ name: 'Phantom', async connect() { return (await ph.connect()).publicKey.toString(); }, async sign(m) { return (await ph.signMessage(m, 'utf8')).signature; } });
+    const l = ws.flatMap((w) => {
+      const connect = feature(w, 'standard:connect'), sign = feature(w, 'solana:signMessage');
+      if (!connect || !sign) return [];
+      return [{ name: w.name || 'Wallet Standard', async connect() { const r = await connect.connect(); this.acc = (r && r.accounts && r.accounts[0]) || (w.accounts && w.accounts[0]); if (!this.acc || !this.acc.address) throw new Error('wallet did not return an address'); return this.acc.address; }, async sign(m) { const r = await sign.signMessage({ account: this.acc, message: m }); return Array.isArray(r) ? r[0].signature : r.signature; } }];
+    });
+    const injectedWallets = [['Phantom', window.phantom && window.phantom.solana], ['Phantom', window.solana], ['Solflare', window.solflare]].filter(([, w]) => w);
+    injectedWallets.forEach(([name, w]) => { if (!l.some((x) => x.name === name)) l.push(injected(name, w)); });
     return l;
   }
   // step 3: connect + one signature covers email + models; server checks the $ balance and emails the user
@@ -1364,15 +1373,15 @@
       const address = await p.connect(), ts = Date.now(); st.textContent = 'sign to confirm (no transaction)...';
       const sig = await p.sign(new TextEncoder().encode('rax claim\nwallet: ' + address + '\nemail: ' + mailed + '\nmodels: ' + models.join(',') + '\nts: ' + ts));
       st.textContent = 'rax is checking your wallet...';
-      const r = await (await fetch('/api/claim', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address, ts, signature: b64(sig), email: mailed, models }) })).json();
-      st.textContent = r.ok ? 'eligible. rax emailed you, and usage updates will land there.' : (r.error || 'failed. try again.');
+      const response = await fetch('/api/claim', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address, ts, signature: b64(sig), email: mailed, models }) });
+      const r = await response.json().catch(() => ({}));
+      st.textContent = response.ok && r.ok ? 'eligible. rax emailed you — check your inbox and spam.' : (r.error || 'failed. try again.');
     } catch (e) { st.textContent = 'cancelled or failed. nothing was sent.'; }
   }
   function drawBtns() {
     const box = $('#wallet-btns'), ps = providers();
     if (ps.length) { box.replaceChildren(...ps.map((p) => { const b = document.createElement('button'); b.textContent = 'connect ' + p.name; b.onclick = () => claim(p); return b; })); return; }
-    const u = encodeURIComponent(location.href), o = encodeURIComponent(location.origin), mk = (t, href) => { const a = document.createElement('a'); a.textContent = t; a.href = href; a.className = 'mini-btn'; return a; };
-    box.replaceChildren(mk('open in phantom', 'https://phantom.app/ul/browse/' + u + '?ref=' + o), mk('open in solflare', 'https://solflare.com/ul/v1/browse/' + u + '?ref=' + o), mk('open in jupiter', 'https://jup.ag/'));
+    const note = document.createElement('span'); note.className = 'fine'; note.textContent = 'no wallet provider detected. open this page inside your wallet browser or install a wallet extension; rax will not redirect you.'; box.replaceChildren(note);
   }
   drawBtns(); setTimeout(drawBtns, 800); setTimeout(drawBtns, 2500); addEventListener('focus', drawBtns);
 
@@ -1382,7 +1391,7 @@
   $('#copy-rax').addEventListener('click', async () => { const msg = $('#share-msg'); try { await navigator.clipboard.writeText(location.href); msg.textContent = 'link copied. no shilling attached.'; } catch (e) { msg.textContent = 'copy unavailable in this browser.'; } });
   $('#community-email-btn').addEventListener('click', async () => {
     const input = $('#community-email'), msg = $('#community-email-msg'), email = input.value.trim(); msg.textContent = 'sending...';
-    try { const r = await fetch('/api/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, updates: true }) }); if (!r.ok) throw new Error('failed'); msg.textContent = 'subscribed. rax will write when he has something to say.'; input.value = ''; } catch (e) { msg.textContent = 'that did not work. check the address and try again.'; }
+    try { const r = await fetch('/api/subscribe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, updates: true }) }); if (!r.ok) throw new Error('failed'); msg.textContent = 'subscribed. check your inbox — and spam if rax is missing.'; input.value = ''; } catch (e) { msg.textContent = 'that did not work. check the address and try again.'; }
   });
 })();
 </script>

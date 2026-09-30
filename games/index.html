@@ -11,9 +11,9 @@ const grid = document.getElementById('grid');
 GAMES.forEach((g) => {
   const a = document.createElement('a'); a.className = 'card'; a.href = g.file; a.style.background = g.color;
   const best = g.id === 'feed-rax' ? 0 : (() => { try { return +localStorage.getItem('raxgames:best:' + g.id) || 0; } catch (e) { return 0; } })();
-  a.innerHTML = '<div class="cover"><div class="ph"></div></div><div class="cbody"><b></b><span></span><small></small></div>';
-  const cover = a.querySelector('.cover'), img = document.createElement('img'); img.alt = g.name + ' preview'; img.src = g.cover;
-  img.onload = () => { a.querySelector('.ph').remove(); cover.append(img); }; img.onerror = () => { img.remove(); };
+  a.innerHTML = '<div class="cover"><img alt="' + g.name + ' preview" src="' + g.cover + '"><div class="ph">' + g.name[0] + '</div></div><div class="cbody"><b></b><span></span><small></small></div>';
+  const img = a.querySelector('img'), ph = a.querySelector('.ph');
+  img.addEventListener('load', () => ph.remove()); img.addEventListener('error', () => img.remove());
   a.querySelector('.ph').textContent = g.name[0]; a.querySelector('b').textContent = g.name; a.querySelector('span').textContent = g.blurb;
   a.querySelector('small').textContent = g.id === 'feed-rax' ? 'PET' : best ? 'BEST ' + best : 'PLAY';
   grid.append(a);
